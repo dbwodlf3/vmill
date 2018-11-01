@@ -25,7 +25,7 @@
 #include "remill/Arch/Arch.h"
 #include "remill/OS/OS.h"
 
-#include "vmill/Program/AddressSpace.h"
+#include <vmill/Program/AddressSpace.h>
 #include "vmill/Util/Compiler.h"
 #include "vmill/Util/Hash.h"
 
@@ -682,9 +682,9 @@ void AddressSpace::LogMaps(std::ostream &os) const {
     }
     std::stringstream ss;
     auto flags = ss.flags();
-    ss << "  [" << std::hex << std::setw(arch->address_size / 4)
+    ss << "  [" << std::hex << std::setw((int32_t)(arch->address_size / 4))
        << std::setfill('0') << range->BaseAddress() << ", " << std::hex
-       << std::setw(arch->address_size / 4) << std::setfill('0')
+       << std::setw((int32_t)(arch->address_size) / 4) << std::setfill('0')
        << range->LimitAddress() << ")";
     ss.setf(flags);
 

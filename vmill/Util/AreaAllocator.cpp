@@ -137,7 +137,7 @@ uint8_t *AreaAllocator::Allocate(size_t size, size_t align) {
 
   if ((bump + size) >= limit) {
     auto missing = (bump + size - limit);
-    auto alloc_size = (missing + (page_size - 1UL)) & ~(page_size - 1UL);
+    auto alloc_size = ((unsigned)missing + (page_size - 1UL)) & ~(page_size - 1UL);
     if (!alloc_size) {
       alloc_size = page_size;
     }
