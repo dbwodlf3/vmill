@@ -47,6 +47,23 @@
 
 namespace vmill {
 namespace {
+
+ class Lifter {
+ public:
+  virtual ~Lifter(void);
+
+  static std::unique_ptr<Lifter> Create(
+      const std::shared_ptr<llvm::LLVMContext> &context);
+
+  // Lift a list of decoded traces into a new LLVM bitcode module, and
+  // return the resulting module.
+  virtual std::unique_ptr<llvm::Module> Lift(
+      uint64_t addr_) = 0;
+
+ protected:
+  Lifter(void);
+};
+
 class VmillTraceManager: public remill::TraceManager{
   public:
     explicit VmillTraceManager(AddressSpace &addr_space);
@@ -70,7 +87,7 @@ class VmillTraceManager: public remill::TraceManager{
     std::unordered_map<uint64_t, llvm::Function *> traces;
 };
 
-class VmillTraceLifter: public remill::TraceLifter {
+class VmillTraceLifter: public Lifter ,public remill::TraceLifter{
     //The goal here is to get the Lift function working
     public:
       inline VmillTraceLifter(remill::InstructionLifter &inst_lifter_,
@@ -79,11 +96,15 @@ class VmillTraceLifter: public remill::TraceLifter {
 
       VmillTraceLifter(remill::InstructionLifter *inst_lifter_,
                       VmillTraceManager *manager_);
+      
+      VmillTraceLifter(const std::shared_ptr<llvm::LLVMContext> &context_);
 
-      std::unique_ptr<llvm::Module> VmillLift(uint64_t addr_, VmillTraceManager *manager);
-
-      std::unique_ptr<VmillTraceLifter> Create(std::unique_ptr<llvm::LLVMContext>
-              &context_);
+      std::unique_ptr<llvm::Module> Lift(uint64_t addr_) final;
+    
+    private:
+      std::unique_ptr<llvm::Module> VmillLift(uint64_t addr_);
+      std::shared_ptr<VmillTraceManager> manager_ptr;
 };
+
 }
 } //namespace vmill

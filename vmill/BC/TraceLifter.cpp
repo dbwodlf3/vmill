@@ -50,11 +50,26 @@ llvm::Function *VmillTraceManager::GetLiftedTraceDefinition(uint64_t addr){
 
 VmillTraceLifter::VmillTraceLifter(remill::InstructionLifter *inst_lifter_,
                  VmillTraceManager *manager_)
-    : remill::TraceLifter(inst_lifter_, manager_) {}
+    : Lifter(),
+      remill::TraceLifter(inst_lifter_, manager_),
+      manager_ptr(std::shared_ptr<VmillTraceManager>(manager_)){}
+
+ VmillTraceLifter::VmillTraceLifter(const std::shared_ptr<llvm::LLVMContext> &context_):
+   Lifter(),
+   remill::TraceLifter(nullptr, nullptr),
+   manager_ptr(nullptr) {
+     std::unique_ptr<llvm::Module> module(remill::LoadTargetSemantics(context_.get()));
+     auto arch = remill::GetTargetArch();
+     thread_local AddressSpace memory;
+     auto tm = new VmillTraceManager(memory);
+     manager_ptr = std::shared_ptr<VmillTraceManager>(tm);
+     remill::IntrinsicTable intrinsics(module);
+     remill::InstructionLifter inst_lifter(arch, intrinsics);
+     remill::TraceLifter(inst_lifter, manager);
+}
 
 
-std::unique_ptr<llvm::Module> VmillTraceLifter::VmillLift(uint64_t addr_,
-        VmillTraceManager *manager) {
+std::unique_ptr<llvm::Module> VmillTraceLifter::VmillLift(uint64_t addr_) {
   //assumes remill::TraceLifter has all protected fields and no private fields
   remill::TraceLifter::Lift(addr_);
   remill::OptimizationGuide guide = {};
@@ -62,40 +77,35 @@ std::unique_ptr<llvm::Module> VmillTraceLifter::VmillLift(uint64_t addr_,
   guide.loop_vectorize = true;
   guide.verify_input = true;
   guide.eliminate_dead_stores = false; //avoids buggy DSE for now
-  remill::OptimizeModule(module, manager->traces, guide);
 
+  remill::OptimizeModule(module, manager_ptr->traces, guide);
   llvm::Module dest_module("lifted_code", context);
   arch->PrepareModuleDataLayout(&dest_module);
 
-  for (auto &lifted_entry: manager->traces) {
+  for (auto &lifted_entry: manager_ptr->traces) {
     remill::MoveFunctionIntoModule(lifted_entry.second, &dest_module);
   }
 
   return std::unique_ptr<llvm::Module>(&dest_module);
 }
 
+std::unique_ptr<llvm::Module> VmillTraceLifter::Lift(uint64_t addr_){
+  return VmillLift(addr_);
+}
+
 } //namespace
 
-std::unique_ptr<VmillTraceLifter> VmillTraceLifter::Create(
-        std::unique_ptr<llvm::LLVMContext> &context_){
-    
-    std::unique_ptr<llvm::Module> module(remill::LoadTargetSemantics(context_.get()));
-    auto arch = remill::GetTargetArch();
-    thread_local AddressSpace memory;
-    thread_local VmillTraceManager manager(memory);
-    thread_local remill::IntrinsicTable intrinsics(module);
-    thread_local remill::InstructionLifter inst_lifter(arch, intrinsics);
-
-    return std::unique_ptr<VmillTraceLifter>(
-            new VmillTraceLifter(inst_lifter, manager));
+std::unique_ptr<Lifter> Lifter::Create(
+    const std::shared_ptr<llvm::LLVMContext> &context){
+    return std::unique_ptr<Lifter>(new VmillTraceLifter(context));
 }
+
+Lifter::Lifter(void){}
+Lifter::~Lifter(void){}
 
 } //namespace vmill
 
-
 using namespace vmill;
-
 int main(){
-  std::unique_ptr<llvm::LLVMContext> context;
-  std::cout << "Hello World" << std::endl;
+  std::cout << "Hello World\n";
 }
