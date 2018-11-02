@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <iostream>
 #include "TraceLifter.h"
 
 namespace vmill {
@@ -65,9 +64,8 @@ VmillTraceLifter::VmillTraceLifter(remill::InstructionLifter *inst_lifter_,
      manager_ptr = std::shared_ptr<VmillTraceManager>(tm);
      remill::IntrinsicTable intrinsics(module);
      remill::InstructionLifter inst_lifter(arch, intrinsics);
-     remill::TraceLifter(inst_lifter, manager);
+     remill::TraceLifter(inst_lifter, *tm);
 }
-
 
 std::unique_ptr<llvm::Module> VmillTraceLifter::VmillLift(uint64_t addr_) {
   //assumes remill::TraceLifter has all protected fields and no private fields
@@ -104,8 +102,3 @@ Lifter::Lifter(void){}
 Lifter::~Lifter(void){}
 
 } //namespace vmill
-
-using namespace vmill;
-int main(){
-  std::cout << "Hello World\n";
-}

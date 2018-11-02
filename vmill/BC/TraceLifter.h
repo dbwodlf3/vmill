@@ -57,7 +57,7 @@ namespace {
 
   // Lift a list of decoded traces into a new LLVM bitcode module, and
   // return the resulting module.
-  virtual std::unique_ptr<llvm::Module> Lift(
+  virtual  std::unique_ptr<llvm::Module> Lift(
       uint64_t addr_) = 0;
 
  protected:
@@ -87,7 +87,7 @@ class VmillTraceManager: public remill::TraceManager{
     std::unordered_map<uint64_t, llvm::Function *> traces;
 };
 
-class VmillTraceLifter: public Lifter ,public remill::TraceLifter{
+class VmillTraceLifter: public Lifter, public remill::TraceLifter{
     //The goal here is to get the Lift function working
     public:
       inline VmillTraceLifter(remill::InstructionLifter &inst_lifter_,
@@ -105,6 +105,5 @@ class VmillTraceLifter: public Lifter ,public remill::TraceLifter{
       std::unique_ptr<llvm::Module> VmillLift(uint64_t addr_);
       std::shared_ptr<VmillTraceManager> manager_ptr;
 };
-
 }
 } //namespace vmill

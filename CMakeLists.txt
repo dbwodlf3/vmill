@@ -12,13 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-project(remill-lift)
-cmake_minimum_required(VERSION 3.2)
+project(vmill)
+cmake_minimum_required (VERSION 3.2)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/settings.cmake")
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/utils.cmake")
 
 FindAndSelectClangCompiler()
+
+enable_language(ASM)
+
+set(VMILL_SOURCE_DIR "${PROJECT_SOURCE_DIR}")
+set(VMILL_TOOLS_DIR "${PROJECT_SOURCE_DIR}/tools")
 
 # warnings and compiler settings
 if(NOT DEFINED WIN32)
@@ -28,31 +33,32 @@ if(NOT DEFINED WIN32)
   )
 endif()
 
-#
-# target settings
-#
 
-set(REMILL_LIFT remill-lift-${REMILL_LLVM_VERSION})
+list(APPEND PROJECT_INCLUDEDIRECTORIES "${VMILL_SOURCE_DIR}")
+list(APPEND PROJECT_INCLUDEDIRECTORIES "${VMILL_TOOLS_DIR}")
 
-add_executable(${REMILL_LIFT}
-  vmill/BC/TraceLifter.cpp
-  vmill/Executor/Executor.cpp
-  vmill/Program/AddressSpace.cpp
-  vmill/Program/MappedRange.cpp
-  vmill/Util/Util.cpp
-  vmill/Util/Hash.cpp
-  vmill/Util/AreaAllocator.cpp
-  vmill/Util/ZoneAllocator.cpp
-  third_party/xxHash/xxhash.c
+list(APPEND PROJECT_DEFINITIONS "VMILL_INSTALL_RUNTIME_DIR=\"${CMAKE_INSTALL_PREFIX}/share/vmill/${REMILL_LLVM_VERSION}/runtime/\"")
+
+add_library(${PROJECT_NAME} STATIC
+    ${PROJECT_PROTOBUFSOURCEFILES}
+    vmill/BC/TraceLifter.cpp
+    
+    vmill/Executor/Executor.cpp
+    
+    vmill/Program/AddressSpace.cpp
+    vmill/Program/MappedRange.cpp
+    vmill/Program/ShadowMemory.cpp
+    
+    vmill/Util/AreaAllocator.cpp
+    vmill/Util/Hash.cpp
+    vmill/Util/Timer.cpp
+    vmill/Util/Util.cpp
+    vmill/Util/ZoneAllocator.cpp
+    
+    third_party/xxHash/xxhash.c
 )
 
-# this is needed for the #include directives with absolutes paths to work correctly; it must
-# also be set to PUBLIC since mcsema-lift includes some files directly
-list(APPEND PROJECT_INCLUDEDIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR})
-
-#
-# libraries
-#
+set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # remill
 if(NOT TARGET remill)
@@ -63,25 +69,27 @@ if(NOT TARGET remill)
   find_package(remill REQUIRED ${REMILL_FINDPACKAGE_HINTS})
 endif()
 
-list(APPEND PROJECT_LIBRARIES remill)
+# add everything as public.
+target_link_libraries(${PROJECT_NAME} PUBLIC remill ${ROARING_LIB_NAME} ${ZLIB_LIBRARIES} LLVMCodeGen LLVMAsmPrinter LLVMRuntimeDyld LLVMExecutionEngine LLVMTarget LLVMX86AsmParser LLVMX86AsmPrinter LLVMX86CodeGen LLVMAArch64AsmParser LLVMAArch64AsmPrinter LLVMAArch64CodeGen)
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC  ${PROJECT_INCLUDEDIRECTORIES})
+target_compile_definitions(${PROJECT_NAME} PUBLIC ${PROJECT_DEFINITIONS})
+#set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS ${PROJECT_CXXFLAGS})
 
-#
-# target settings
-#
+set(VMILL_INCLUDEDIRECTORIES ${PROJECT_INCLUDEDIRECTORIES})
 
-target_link_libraries(${REMILL_LIFT} PRIVATE ${PROJECT_LIBRARIES})
-target_include_directories(${REMILL_LIFT} SYSTEM PUBLIC ${PROJECT_INCLUDEDIRECTORIES})
-target_compile_definitions(${REMILL_LIFT} PUBLIC ${PROJECT_DEFINITIONS})
-target_compile_options(${REMILL_LIFT} PRIVATE ${PROJECT_CXXFLAGS})
+set(VMILL_EXECUTE vmill-tracelifter-${REMILL_LLVM_VERSION})
 
-if(DEFINED WIN32)
-  set(install_folder "${CMAKE_INSTALL_PREFIX}/remill")
-else()
-  set(install_folder "${CMAKE_INSTALL_PREFIX}")
-endif()
+add_executable(${VMILL_EXECUTE}
+    Execute.cpp
+)
+
+target_link_libraries(${VMILL_EXECUTE} PRIVATE vmill ${PROJECT_LIBRARIES})
+target_include_directories(${VMILL_EXECUTE} SYSTEM PUBLIC ${PROJECT_INCLUDEDIRECTORIES})
+target_compile_definitions(${VMILL_EXECUTE} PUBLIC ${PROJECT_DEFINITIONS})
+#set_target_properties(${VMILL_EXECUTE} PROPERTIES COMPILE_FLAGS ${PROJECT_CXXFLAGS})
 
 install(
-  TARGETS ${REMILL_LIFT}
-  RUNTIME DESTINATION "${install_folder}/bin"
-  LIBRARY DESTINATION "${install_folder}/lib"
+    TARGETS ${VMILL_EXECUTE}
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
 )
