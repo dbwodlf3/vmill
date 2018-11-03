@@ -13,12 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include "Executor.h"
+#include "vmill/BC/TraceLifter.h"
 
 namespace vmill {
+thread_local Executor *gExecutor = nullptr;
 
 namespace {
+
+static thread_local std::unique_ptr<Lifter> gTLifter;
 // Returns a thread-specific lifter object.
 static const std::unique_ptr<Lifter> &GetLifter(
     const std::shared_ptr<llvm::LLVMContext> &context) {
@@ -28,5 +31,13 @@ static const std::unique_ptr<Lifter> &GetLifter(
   return gTLifter;
 }
 } //namespace
+
+Executor::Executor(void)
+  : context(new llvm::LLVMContext) {}
+
+void  Executor::Run(void){
+    auto &lifter = GetLifter(context);
+    std::cout << &lifter << std::endl;
+}
 
 } //namespace vmill

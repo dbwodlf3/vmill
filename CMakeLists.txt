@@ -29,7 +29,7 @@ set(VMILL_TOOLS_DIR "${PROJECT_SOURCE_DIR}/tools")
 if(NOT DEFINED WIN32)
   set(PROJECT_CXXFLAGS
     ${GLOBAL_CXXFLAGS} -Werror -Wconversion -pedantic 
-    -Wno-unreachable-code-return 
+    -Wno-unreachable-code-return  
   )
 endif()
 
@@ -39,11 +39,10 @@ list(APPEND PROJECT_INCLUDEDIRECTORIES "${VMILL_TOOLS_DIR}")
 
 list(APPEND PROJECT_DEFINITIONS "VMILL_INSTALL_RUNTIME_DIR=\"${CMAKE_INSTALL_PREFIX}/share/vmill/${REMILL_LLVM_VERSION}/runtime/\"")
 
+
 add_library(${PROJECT_NAME} STATIC
-    ${PROJECT_PROTOBUFSOURCEFILES}
-    vmill/BC/TraceLifter.cpp
-    
-    vmill/Executor/Executor.cpp
+    /home/sai/ToB/remill/tools/tlift/vmill/BC/TraceLifter.cpp
+    /home/sai/ToB/remill/tools/tlift/vmill/Executor/Executor.cpp
     
     vmill/Program/AddressSpace.cpp
     vmill/Program/MappedRange.cpp

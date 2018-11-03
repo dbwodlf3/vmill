@@ -46,7 +46,6 @@
 #pragma once
 
 namespace vmill {
-namespace {
 
  class Lifter {
  public:
@@ -105,5 +104,4 @@ class VmillTraceLifter: public Lifter, public remill::TraceLifter{
       std::unique_ptr<llvm::Module> VmillLift(uint64_t addr_);
       std::shared_ptr<VmillTraceManager> manager_ptr;
 };
-}
 } //namespace vmill

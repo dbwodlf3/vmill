@@ -17,7 +17,6 @@
 #include "TraceLifter.h"
 
 namespace vmill {
-namespace {
 void VmillTraceManager::ForEachDevirtualizedTarget(
     const remill::Instruction &inst,
     std::function<void(uint64_t, remill::DevirtualizedTargetKind)> func){}
@@ -90,8 +89,6 @@ std::unique_ptr<llvm::Module> VmillTraceLifter::VmillLift(uint64_t addr_) {
 std::unique_ptr<llvm::Module> VmillTraceLifter::Lift(uint64_t addr_){
   return VmillLift(addr_);
 }
-
-} //namespace
 
 std::unique_ptr<Lifter> Lifter::Create(
     const std::shared_ptr<llvm::LLVMContext> &context){
