@@ -14,88 +14,73 @@
  * limitations under the License.
  */
 
-#include "TraceLifter.h"
+#include <gflags/gflags.h>
+#include <glog/logging.h>
+
+#include <algorithm>
+#include <limits>
+#include <set>
+#include <string>
+#include <utility>
+
+#include <llvm/IR/Function.h>
+#include <llvm/IR/GlobalValue.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Type.h>
+
+#include "remill/Arch/Arch.h"
+#include "remill/Arch/Instruction.h"
+#include "remill/Arch/Name.h"
+
+#include "remill/BC/ABI.h"
+#include "remill/BC/IntrinsicTable.h"
+#include "remill/BC/Lifter.h"
+#include "remill/BC/Util.h"
+#include "remill/BC/Optimizer.h"
+
+#include "remill/OS/OS.h"
+
+#include "vmill/Executor/TraceManager.h"
+#include "vmill/BC/TraceLifter.h"
+#include "vmill/Program/AddressSpace.h"
 
 namespace vmill {
-void VmillTraceManager::ForEachDevirtualizedTarget(
-    const remill::Instruction &inst,
-    std::function<void(uint64_t, remill::DevirtualizedTargetKind)> func){}
 
-VmillTraceManager::VmillTraceManager(AddressSpace &addr_space)
-    : memory(addr_space) {}
- 
-bool VmillTraceManager::TryReadExecutableByte(uint64_t addr, uint8_t *byte){
-  return memory.TryReadExecutable(static_cast<PC>(addr), byte);
-}
+TraceLifter::TraceLifter(llvm::Module &lifted_traces_,
+                         TraceManager &trace_manager_)
+    : context(lifted_traces_.getContext()),
+      traces_module(lifted_traces_),
+      semantics_module(remill::LoadTargetSemantics(&context)),
+      intrinsics(semantics_module),
+      trace_manager(trace_manager_),
+      inst_lifter(remill::GetTargetArch(), intrinsics),
+      trace_lifter_impl(inst_lifter, trace_manager) {}
 
-void VmillTraceManager::SetLiftedTraceDefinition(
-        uint64_t addr, llvm::Function *lifted_func){
-  traces[addr] = lifted_func;
-}
+llvm::Function *TraceLifter::Lift(AddressSpace *memory, uint64_t addr) {
+  std::unordered_map<uint64_t, llvm::Function *> new_lifted_traces;
 
-llvm::Function *VmillTraceManager::GetLiftedTraceDeclaration(uint64_t addr){
-  auto trace_it = traces.find(addr);
-  if (trace_it != traces.end()){
-    return trace_it -> second;
-  } else {
-    return nullptr;
-  }
-}
+  trace_manager.memory = memory;
+  trace_lifter_impl.Lift(addr);
+  trace_manager.memory = nullptr;
 
-llvm::Function *VmillTraceManager::GetLiftedTraceDefinition(uint64_t addr){
-  return GetLiftedTraceDeclaration(addr);
-}
-
-VmillTraceLifter::VmillTraceLifter(remill::InstructionLifter *inst_lifter_,
-                 VmillTraceManager *manager_)
-    : Lifter(),
-      remill::TraceLifter(inst_lifter_, manager_),
-      manager_ptr(std::shared_ptr<VmillTraceManager>(manager_)){}
-
- VmillTraceLifter::VmillTraceLifter(const std::shared_ptr<llvm::LLVMContext> &context_):
-   Lifter(),
-   remill::TraceLifter(nullptr, nullptr),
-   manager_ptr(nullptr) {
-     std::unique_ptr<llvm::Module> module(remill::LoadTargetSemantics(context_.get()));
-     auto arch = remill::GetTargetArch();
-     thread_local AddressSpace memory;
-     auto tm = new VmillTraceManager(memory);
-     manager_ptr = std::shared_ptr<VmillTraceManager>(tm);
-     remill::IntrinsicTable intrinsics(module);
-     remill::InstructionLifter inst_lifter(arch, intrinsics);
-     remill::TraceLifter(inst_lifter, *tm);
-}
-
-std::unique_ptr<llvm::Module> VmillTraceLifter::VmillLift(uint64_t addr_) {
   //assumes remill::TraceLifter has all protected fields and no private fields
-  remill::TraceLifter::Lift(addr_);
   remill::OptimizationGuide guide = {};
   guide.slp_vectorize = true;
   guide.loop_vectorize = true;
   guide.verify_input = true;
-  guide.eliminate_dead_stores = false; //avoids buggy DSE for now
+  guide.eliminate_dead_stores = false;  // Avoids buggy DSE for now.
 
-  remill::OptimizeModule(module, manager_ptr->traces, guide);
-  llvm::Module dest_module("lifted_code", context);
-  arch->PrepareModuleDataLayout(&dest_module);
 
-  for (auto &lifted_entry: manager_ptr->traces) {
-    remill::MoveFunctionIntoModule(lifted_entry.second, &dest_module);
+  remill::OptimizeModule(semantics_module, new_lifted_traces, guide);
+
+
+  for (auto lifted_entry : new_lifted_traces) {
+    remill::MoveFunctionIntoModule(lifted_entry.second, &traces_module);
   }
 
-  return std::unique_ptr<llvm::Module>(&dest_module);
+  return new_lifted_traces[addr];
 }
 
-std::unique_ptr<llvm::Module> VmillTraceLifter::Lift(uint64_t addr_){
-  return VmillLift(addr_);
-}
-
-std::unique_ptr<Lifter> Lifter::Create(
-    const std::shared_ptr<llvm::LLVMContext> &context){
-    return std::unique_ptr<Lifter>(new VmillTraceLifter(context));
-}
-
-Lifter::Lifter(void){}
-Lifter::~Lifter(void){}
-
-} //namespace vmill
+}  //namespace vmill

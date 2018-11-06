@@ -16,34 +16,32 @@
 
 #pragma once
 
-#include <cfenv>
-#include <setjmp.h>
-
-#include <iostream>
-
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 
-#include "remill/BC/Util.h"
-#include "remill/OS/FileSystem.h"
-
 #include "vmill/BC/TraceLifter.h"
-#include "vmill/Program/AddressSpace.h"
-#include "vmill/Util/Compiler.h"
+#include "vmill/Executor/TraceManager.h"
 
 namespace llvm {
 class LLVMContext;
 }
 
 namespace vmill {
+
 class AddressSpace;
 class Lifter;
 
 class Executor {
   public:
    Executor(void);
+   ~Executor(void);
+
    void Run(void);
+
   private:
    std::shared_ptr<llvm::LLVMContext> context;
+   std::unique_ptr<llvm::Module> lifted_code;
+   TraceManager trace_manager;
+   TraceLifter lifter;
 };
 } //namespace vmill

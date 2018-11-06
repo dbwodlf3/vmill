@@ -1,3 +1,6 @@
+
+#include <iostream>
+
 #include "vmill/BC/TraceLifter.h"
 #include "vmill/Executor/Executor.h"
 

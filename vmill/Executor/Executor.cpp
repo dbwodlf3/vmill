@@ -13,31 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "Executor.h"
+
+#include <glog/logging.h>
+
+#include "remill/BC/Util.h"
+#include "remill/OS/FileSystem.h"
+
+#include "vmill/Util/Compiler.h"
+
+#include "vmill/Executor/Executor.h"
+
 #include "vmill/BC/TraceLifter.h"
+#include "vmill/Program/AddressSpace.h"
 
 namespace vmill {
-thread_local Executor *gExecutor = nullptr;
-
-namespace {
-
-static thread_local std::unique_ptr<Lifter> gTLifter;
-// Returns a thread-specific lifter object.
-static const std::unique_ptr<Lifter> &GetLifter(
-    const std::shared_ptr<llvm::LLVMContext> &context) {
-  if (unlikely(!gTLifter)) {
-    Lifter::Create(context).swap(gTLifter);
-  }
-  return gTLifter;
-}
-} //namespace
 
 Executor::Executor(void)
-  : context(new llvm::LLVMContext) {}
+    : context(new llvm::LLVMContext),
+      lifted_code(new llvm::Module("lifted-code", context)),
+      trace_manager(lifted_code),
+      lifter(Lifter::Create(trace_manager, lifted_code)) {}
 
-void  Executor::Run(void){
-    auto &lifter = GetLifter(context);
-    std::cout << &lifter << std::endl;
+Executor::~Executor(void) {}
+
+void Executor::Run(void) {
+  auto trace = trace_manager.GetLiftedTraceDefinition(0);
+  LOG(ERROR) << &lifter;
 }
 
-} //namespace vmill
+}  //namespace vmill
