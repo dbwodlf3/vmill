@@ -14,27 +14,10 @@
  * limitations under the License.
  */
 
-#ifndef VMILL_RUNTIME_VXWORKS_RUN_H_
-#define VMILL_RUNTIME_VXWORKS_RUN_H_
-
 #include "vmill/Runtime/Task.h"
 
-#if 32 == ADDRESS_SIZE_BITS
-# define PRIdADDR PRId32
-# define PRIxADDR PRIx32
-# define PRIuADDR PRIu32
-#else
-# define PRIdADDR PRId64
-# define PRIxADDR PRIx64
-# define PRIuADDR PRIu64
-#endif
+namespace vmill {
 
-// Returns a pointer to the currently executing task.
-extern "C" vmill::Task *__vmill_current(void);
+extern "C" Task __vmill_task_0 = {};
 
-// Add a task to the operating system.
-extern "C" vmill::Task *__vmill_create_task(
-    const void *state, vmill::PC pc, vmill::AddressSpace *memory);
-
-
-#endif  // VMILL_RUNTIME_VXWORKS_RUN_H_
+}  // namespace vmill

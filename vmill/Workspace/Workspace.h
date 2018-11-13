@@ -31,6 +31,7 @@ class Workspace {
   static const std::string &BitcodeDir(void);
   static const std::string &ToolDir(void);
   static const std::string &LibraryDir(void);
+  static const std::string &LocalRuntimeBitcodePath(void);
   static const std::string &RuntimeBitcodePath(void);
   static const std::string &RuntimeLibraryPath(void);
 

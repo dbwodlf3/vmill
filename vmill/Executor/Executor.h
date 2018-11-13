@@ -32,37 +32,41 @@ namespace vmill {
 class AddressSpace;
 class Lifter;
 
-struct LiftedBitcodeInfo{
-    PC pc;
-    llvm::Function *lifted_func;
-    uint64_t version = 0;
+struct LiftedBitcodeInfo {
+  inline LiftedBitcodeInfo(void)
+      : pc(static_cast<PC>(0)),
+        lifted_func(nullptr),
+        version(0) {}
+
+  PC pc;
+  llvm::Function *lifted_func;
+  uint64_t version;
 };
 
-struct InitialTaskInfo{
+struct InitialTaskInfo {
   std::string state;
   PC pc;
   std::shared_ptr<AddressSpace> memory;
 };
 
-using LiftedFunctions = std::map<PC, LiftedBitcodeInfo>;
-
 class Executor {
-  public:
-   Executor(void);
-   ~Executor(void);
-   void SetUp(void);
-   void TearDown(void);
-   void Run(void);
-   LiftedBitcodeInfo GetLiftedFunction(Task *task);
-   void AddInitialTask(const std::string &state, PC pc,
-                       std::shared_ptr<AddressSpace> memory);
+ public:
+  Executor(void);
+  ~Executor(void);
+  void SetUp(void);
+  void TearDown(void);
+  void Run(void);
+  LiftedBitcodeInfo GetLiftedFunction(Task *task);
 
-  private:
-   std::shared_ptr<llvm::LLVMContext> context;
-   std::unique_ptr<llvm::Module> lifted_code;
-   TraceManager trace_manager;
-   TraceLifter lifter;
-   std::vector<InitialTaskInfo> initial_tasks;
+  void AddInitialTask(const std::string &state, PC pc,
+                      std::shared_ptr<AddressSpace> memory);
+
+ private:
+  std::shared_ptr<llvm::LLVMContext> context;
+  std::unique_ptr<llvm::Module> lifted_code;
+  TraceManager trace_manager;
+  TraceLifter lifter;
+  std::vector<std::shared_ptr<AddressSpace>> memories;
 };
 
-} //namespace vmill
+}  // namespace vmill

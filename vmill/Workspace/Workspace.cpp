@@ -150,6 +150,20 @@ const std::string &Workspace::LibraryDir(void) {
 static std::string gBuildRuntimDir = VMILL_BUILD_RUNTIME_DIR;
 static std::string gInstallRuntimeDir = VMILL_INSTALL_RUNTIME_DIR;
 
+const std::string &Workspace::LocalRuntimeBitcodePath(void) {
+  static std::string path;
+  if (!path.empty()) {
+    return path;
+  }
+
+  if (FLAGS_runtime.empty()) {
+    FLAGS_runtime = FLAGS_os + "_" + FLAGS_arch;
+  }
+
+  path = Dir() + remill::PathSeparator() + FLAGS_runtime + ".bc";
+  return path;
+}
+
 const std::string &Workspace::RuntimeBitcodePath(void) {
   static std::string path;
   if (!path.empty()) {

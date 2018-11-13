@@ -71,42 +71,29 @@ enum MemoryValueType : uint16_t {
 };
 
 // A task is like a thread, but really, it's the runtime that gives a bit more
-// meaning to threads. The runtime has `resume`, `pause`, `stop`, and `schedule`
-// intrinsics. When
+// meaning to threads.
+//
+// `struct.Task {u64, u64, [u8 * N]}
 struct Task {
+ private:
+  addr_t pc;
+  uint64_t opaque_memory;
+  uint8_t opaque_state[sizeof(ArchState)];
+
  public:
-  // Register state of this task.
-  ArchState *state;
+  inline addr_t PC(void) const {
+    return pc;
+  }
+  inline Memory *Memory(void) const {
+    return reinterpret_cast<struct Memory *>(opaque_memory);
+  }
+  inline ArchState *State(void) {
+    return reinterpret_cast<ArchState *>(&(opaque_state[0]));
+  }
 
-  // Current program counter of this task.
-  PC pc;
-
-  // Memory that this task can access.
-  AddressSpace *memory;
-
-  // The stack on which lifted code of this task will execute.
-  // Status information.
-  TaskStatus status;
-  TaskStatus status_on_resume;
-
-  // Where was this task last?
-  TaskStopLocation location;
-
-  // Last trace entry program counter executed from this task. This can be
-  // a useful debugging aid.
-  PC last_pc;
-
-  // Information about the first fault encountered while executing.
-  struct {
-    uint64_t address;
-    uint32_t access_size;  // In bytes.
-    MemoryAccessFaultKind kind;
-    MemoryValueType value_type;
-  } mem_access_fault;
-
-  int32_t fpu_rounding_mode;
-  int32_t _padding;
 };
+
+extern "C" Task __vmill_task_0;
 
 }  // namespace vmill
 
