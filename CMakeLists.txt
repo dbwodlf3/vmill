@@ -41,8 +41,10 @@ list(APPEND PROJECT_DEFINITIONS "VMILL_INSTALL_RUNTIME_DIR=\"${CMAKE_INSTALL_PRE
 
 
 add_library(${PROJECT_NAME} STATIC
-    /home/sai/ToB/remill/tools/tlift/vmill/BC/TraceLifter.cpp
-    /home/sai/ToB/remill/tools/tlift/vmill/Executor/Executor.cpp
+    vmill/BC/TraceLifter.cpp
+
+    vmill/Executor/Executor.cpp
+    vmill/Executor/TraceManager.cpp
     
     vmill/Program/AddressSpace.cpp
     vmill/Program/MappedRange.cpp
@@ -53,6 +55,7 @@ add_library(${PROJECT_NAME} STATIC
     vmill/Util/Timer.cpp
     vmill/Util/Util.cpp
     vmill/Util/ZoneAllocator.cpp
+
     
     third_party/xxHash/xxhash.c
 )

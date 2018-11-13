@@ -54,4 +54,5 @@ llvm::Function *TraceManager::GetLiftedTraceDefinition(uint64_t addr) {
   return GetLiftedTraceDeclaration(addr);
 }
 
+
 }  // namespace vmill

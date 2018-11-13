@@ -38,6 +38,7 @@ class TraceManager : public ::remill::TraceManager {
 
   llvm::Function *GetLiftedTraceDefinition(uint64_t addr) override;
 
+
  protected:
   void SetLiftedTraceDefinition(
       uint64_t addr, llvm::Function *lifted_func) override;

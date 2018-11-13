@@ -35,7 +35,6 @@
 #include "remill/Arch/Name.h"
 
 #include "remill/BC/ABI.h"
-#include "remill/BC/IntrinsicTable.h"
 #include "remill/BC/Lifter.h"
 #include "remill/BC/Util.h"
 #include "remill/BC/Optimizer.h"
@@ -59,6 +58,7 @@ TraceLifter::TraceLifter(llvm::Module &lifted_traces_,
       trace_lifter_impl(inst_lifter, trace_manager) {}
 
 llvm::Function *TraceLifter::Lift(AddressSpace *memory, uint64_t addr) {
+  
   std::unordered_map<uint64_t, llvm::Function *> new_lifted_traces;
 
   trace_manager.memory = memory;
@@ -72,9 +72,7 @@ llvm::Function *TraceLifter::Lift(AddressSpace *memory, uint64_t addr) {
   guide.verify_input = true;
   guide.eliminate_dead_stores = false;  // Avoids buggy DSE for now.
 
-
   remill::OptimizeModule(semantics_module, new_lifted_traces, guide);
-
 
   for (auto lifted_entry : new_lifted_traces) {
     remill::MoveFunctionIntoModule(lifted_entry.second, &traces_module);

@@ -21,6 +21,7 @@
 
 #include "vmill/BC/TraceLifter.h"
 #include "vmill/Executor/TraceManager.h"
+#include "vmill/Runtime/Task.h"
 
 namespace llvm {
 class LLVMContext;
@@ -31,17 +32,37 @@ namespace vmill {
 class AddressSpace;
 class Lifter;
 
+struct LiftedBitcodeInfo{
+    PC pc;
+    llvm::Function *lifted_func;
+    uint64_t version = 0;
+};
+
+struct InitialTaskInfo{
+  std::string state;
+  PC pc;
+  std::shared_ptr<AddressSpace> memory;
+};
+
+using LiftedFunctions = std::map<PC, LiftedBitcodeInfo>;
+
 class Executor {
   public:
    Executor(void);
    ~Executor(void);
-
+   void SetUp(void);
+   void TearDown(void);
    void Run(void);
+   LiftedBitcodeInfo GetLiftedFunction(Task *task);
+   void AddInitialTask(const std::string &state, PC pc,
+                       std::shared_ptr<AddressSpace> memory);
 
   private:
    std::shared_ptr<llvm::LLVMContext> context;
    std::unique_ptr<llvm::Module> lifted_code;
    TraceManager trace_manager;
    TraceLifter lifter;
+   std::vector<InitialTaskInfo> initial_tasks;
 };
+
 } //namespace vmill
