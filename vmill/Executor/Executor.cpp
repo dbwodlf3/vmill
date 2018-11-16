@@ -38,29 +38,6 @@
 #include "vmill/Arch/Arch.h"
 #include "vmill/Workspace/Workspace.h"
 
-namespace llvm {
-
-class getRaw : public llvm::ConstantDataSequential {
- public:
-  getRaw(const char *Data, uint64_t NumElements, Type *ElementTy)
-      : ConstantDataSequential(ElementTy, Value::ValueTy(), Data),
-        Data(StringRef(Data)),
-        ElementTy(ElementTy),
-        NumElements(NumElements) {
-  }
-
-  Constant *operator()(void) {
-    Type *Ty = ArrayType::get(ElementTy, NumElements);
-    return ConstantDataArray::getImpl(Data, Ty);
-  }
-
- protected:
-  StringRef Data;
-  Type *ElementTy;
-  uint64_t NumElements;
-};
-
-}  // namespace llvm
 namespace vmill {
 namespace {
 
@@ -102,9 +79,9 @@ Executor::~Executor(void) {
       false);
 }
 
-void Executor::Run(void){
+void Executor::Run(void) {
   SetUp();
-  for (const auto &memory: memories){
+  for (const auto &memory : memories) {
     //const auto lifted_func_info = 
   }
   TearDown();
@@ -159,8 +136,13 @@ void Executor::AddInitialTask(const std::string &state, PC pc,
   initial_vals.push_back(
       llvm::ConstantInt::get(pc_type, static_cast<uint64_t>(pc)));
   initial_vals.push_back(llvm::ConstantInt::get(mem_type, task_num));
-  initial_vals.push_back(
-      llvm::getRaw(state.c_str(), state.size(), u8_type)());
+
+  std::vector<uint8_t> bytes;
+  bytes.reserve(state.size());
+  for (auto c : state) {
+    bytes.push_back(static_cast<uint8_t>(c));
+  }
+  initial_vals.push_back(llvm::ConstantDataArray::get(*context, bytes));
 
   // Fill out the rest of the task structure with zero-initialization.
   for (size_t i = 3; i < elem_types.size(); ++i) {
