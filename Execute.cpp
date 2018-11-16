@@ -27,6 +27,7 @@
 #include "vmill/Program/Snapshot.h"
 #include "vmill/Program/AddressSpace.h"
 
+#include <iostream>
 int main(int argc, char **argv) {
   std::stringstream ss;
   ss << std::endl << std::endl

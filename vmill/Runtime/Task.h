@@ -77,14 +77,16 @@ enum MemoryValueType : uint16_t {
 struct Task {
   PC pc; //addr_t
   uint64_t opaque_memory; 
-  uint8_t opaque_state[8]; //sizeof(ArchState)];
+  uint8_t opaque_state[3280]; //sizeof(ArchState)];
 
   inline PC PC(void) const {
     return pc;
   }
+
   inline Memory *Memory(void) const {
     return reinterpret_cast<struct Memory *>(opaque_memory);
   }
+
   inline ArchState *State(void) {
     return reinterpret_cast<ArchState *>(&(opaque_state[0]));
   }

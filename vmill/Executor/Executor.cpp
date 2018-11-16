@@ -37,7 +37,7 @@
 #include "vmill/Program/AddressSpace.h"
 #include "vmill/Arch/Arch.h"
 #include "vmill/Workspace/Workspace.h"
-
+#include <iostream>
 namespace vmill {
 namespace {
 
@@ -77,12 +77,16 @@ Executor::~Executor(void) {
       lifted_code.get(),
       Workspace::LocalRuntimeBitcodePath(),
       false);
+
+  remill::StoreModuleIRToFile(
+      lifted_code.get(),
+      Workspace::LocalRuntimeBitcodePath() + ".ir",
+      false);
 }
 
 void Executor::Run(void) {
   SetUp();
   for (const auto &memory : memories) {
-    //const auto lifted_func_info = 
   }
   TearDown();
 }
@@ -117,7 +121,7 @@ void Executor::AddInitialTask(const std::string &state, PC pc,
   CHECK(mem_type != nullptr)
       << "Second element type of " << task_var_name << " should be integral";
 
-  auto state_type = llvm::dyn_cast<llvm::ArrayType>(elem_types[0]);
+  auto state_type = llvm::dyn_cast<llvm::ArrayType>(elem_types[2]);
   CHECK(state_type != nullptr)
       << "Third element type of " << task_var_name << " should be an array";
 

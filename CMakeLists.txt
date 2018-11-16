@@ -61,6 +61,8 @@ list(APPEND PROJECT_INCLUDEDIRECTORIES ${PROJECT_PROTOBUFHEADERFILES})
 set_source_files_properties(${PROJECT_PROTOBUFSOURCEFILES} PROPERTIES COMPILE_FLAGS "-Wno-sign-conversion -Wno-shorten-64-to-32 -Wno-conversion")
  set_source_files_properties(${PROJECT_PROTOBUFHEADERFILES} PROPERTIES COMPILE_FLAGS "-Wno-sign-conversion -Wno-shorten-64-to-32 -Wno-conversion")
 
+add_subdirectory(vmill/Runtime)
+
 add_library(${PROJECT_NAME} STATIC
     ${PROJECT_PROTOBUFSOURCEFILES}
     vmill/Runtime/Task.cpp
