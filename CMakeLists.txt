@@ -33,15 +33,41 @@ if(NOT DEFINED WIN32)
   )
 endif()
 
+find_package(ZLIB REQUIRED)
 
 list(APPEND PROJECT_INCLUDEDIRECTORIES "${VMILL_SOURCE_DIR}")
 list(APPEND PROJECT_INCLUDEDIRECTORIES "${VMILL_TOOLS_DIR}")
 
 list(APPEND PROJECT_DEFINITIONS "VMILL_INSTALL_RUNTIME_DIR=\"${CMAKE_INSTALL_PREFIX}/share/vmill/${REMILL_LLVM_VERSION}/runtime/\"")
+list(APPEND PROJECT_DEFINITIONS "VMILL_BUILD_RUNTIME_DIR=\"${CMAKE_CURRENT_BINARY_DIR}/vmill/Runtime/\"")
 
+# protobuf
+find_package(Protobuf REQUIRED)
+list(APPEND PROJECT_LIBRARIES ${Protobuf_LIBRARIES})
+list(APPEND PROJECT_INCLUDEDIRECTORIES ${Protobuf_INCLUDE_DIR})
+list(APPEND PROJECT_DEFINITIONS "GOOGLE_PROTOBUF_NO_RTTI") 
+#
+# protobuf file generation 
+#
+ 
+# this function can't be told where to store the output files! we have to add the whole binary directory
+# to the include directories (or change it and lose compatibility with the system libraries)
+protobuf_generate_cpp(PROJECT_PROTOBUFSOURCEFILES PROJECT_PROTOBUFHEADERFILES
+                      "${CMAKE_CURRENT_SOURCE_DIR}/vmill/Program/Snapshot.proto")
+list(APPEND PROJECT_INCLUDEDIRECTORIES ${CMAKE_CURRENT_BINARY_DIR})
+list(APPEND PROJECT_INCLUDEDIRECTORIES ${PROJECT_PROTOBUFHEADERFILES})
+
+# disable -Werror on these file since they have been generated
+set_source_files_properties(${PROJECT_PROTOBUFSOURCEFILES} PROPERTIES COMPILE_FLAGS "-Wno-sign-conversion -Wno-shorten-64-to-32 -Wno-conversion")
+ set_source_files_properties(${PROJECT_PROTOBUFHEADERFILES} PROPERTIES COMPILE_FLAGS "-Wno-sign-conversion -Wno-shorten-64-to-32 -Wno-conversion")
 
 add_library(${PROJECT_NAME} STATIC
+    ${PROJECT_PROTOBUFSOURCEFILES}
+    vmill/Runtime/Task.cpp
+    
     vmill/BC/TraceLifter.cpp
+
+    vmill/Workspace/Workspace.cpp
 
     vmill/Executor/Executor.cpp
     vmill/Executor/TraceManager.cpp
@@ -49,6 +75,7 @@ add_library(${PROJECT_NAME} STATIC
     vmill/Program/AddressSpace.cpp
     vmill/Program/MappedRange.cpp
     vmill/Program/ShadowMemory.cpp
+    vmill/Program/Snapshot.cpp
     
     vmill/Util/AreaAllocator.cpp
     vmill/Util/Hash.cpp
@@ -95,3 +122,38 @@ install(
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
 )
+
+set(VMILL_LOAD vmill-load-${REMILL_LLVM_VERSION})
+add_executable(${VMILL_LOAD}
+     Load.cpp
+)
+ 
+target_link_libraries(${VMILL_LOAD} PRIVATE vmill ${PROJECT_LIBRARIES})
+target_include_directories(${VMILL_LOAD} SYSTEM PUBLIC ${PROJECT_INCLUDEDIRECTORIES} third_party/ELFIO)
+target_compile_definitions(${VMILL_LOAD} PUBLIC ${PROJECT_DEFINITIONS})
+ 
+install(
+    TARGETS ${VMILL_LOAD}
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+)
+
+if(NOT APPLE)
+	set(VMILL_SNAPSHOT vmill-snapshot-${REMILL_LLVM_VERSION})
+	 
+	add_executable(${VMILL_SNAPSHOT}
+		Snapshot.cpp
+		vmill/Arch/X86/Snapshot.cpp
+		vmill/Arch/AArch64/Snapshot.cpp
+	)
+	 
+	target_link_libraries(${VMILL_SNAPSHOT} PRIVATE vmill ${PROJECT_LIBRARIES})
+	target_include_directories(${VMILL_SNAPSHOT} SYSTEM PUBLIC ${PROJECT_INCLUDEDIRECTORIES})
+	target_compile_definitions(${VMILL_SNAPSHOT} PUBLIC ${PROJECT_DEFINITIONS})
+	 
+	install(
+		TARGETS ${VMILL_SNAPSHOT}
+		RUNTIME DESTINATION bin
+		LIBRARY DESTINATION lib
+	)
+endif()                                                                  

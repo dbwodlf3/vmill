@@ -18,7 +18,9 @@
 #include <gflags/gflags.h>
 
 #include <llvm/IR/Constants.h>
+#include <llvm/IR/Constant.h>
 #include <llvm/IR/DerivedTypes.h>
+#include <llvm/ADT/StringRef.h>
 #include <llvm/IR/Type.h>
 
 #include "remill/BC/Util.h"
@@ -36,30 +38,28 @@
 #include "vmill/Arch/Arch.h"
 #include "vmill/Workspace/Workspace.h"
 
-//#include "vmill/Workspace/Workspace.h"
+namespace llvm {
+class getRaw: public llvm::ConstantDataSequential {
+  public:
+      getRaw(const char *Data,uint64_t NumElements, Type *ElementTy):
+          ConstantDataSequential(ElementTy, Value::ValueTy() ,Data),
+          Data(StringRef(Data)),
+          ElementTy(ElementTy),
+          NumElements(NumElements){}
+
+      Constant *operator()(void){
+        Type *Ty = ArrayType::get(ElementTy, NumElements);
+        return ConstantDataArray::getImpl(Data, Ty);
+      }
  
+  protected:
+     StringRef Data;
+     Type *ElementTy;
+     uint64_t NumElements;
+};
+}
+
 namespace vmill {
-namespace {
-
-//void MoveGlobalFuncsToBC(void) {
-//  //Potentially keep global llvm var and translate this over to the file that I dump code to
-//  llvm::LLVMContext context;
-//  llvm::Module module("lifted_code", context);
-//  //std::stringstream ss;
-//  //ss << Workspace::BitcodeDir() << remill::PathSeparator()
-//  //  << remill::ModuleName(&module);
-//  auto file_name = "bitcodecache.bc";  //ss.str();
-//  auto arch = remill::GetTargetArch();
-//  arch->PrepareModuleDataLayout(&module);
-//
-//  for (const auto& f : gLiftedFuncs) {
-//    remill::MoveFunctionIntoModule(f.second.lifted_func, &module);
-//  }
-//
-//  remill::StoreModuleToFile(&module, file_name);
-//}
-
-} //namespace
 
 Executor::Executor(void)
     : context(new llvm::LLVMContext),
@@ -75,7 +75,6 @@ void Executor::SetUp(void) {}
 void Executor::TearDown(void) {}
 
 Executor::~Executor(void) {
-
   // Reset all task vars to have null initializers.
   for (unsigned i = 0; ; i++) {
     const std::string task_var_name = "__vmill_task_" + std::to_string(i);
@@ -91,13 +90,18 @@ Executor::~Executor(void) {
       lifted_code.get(),
       Workspace::LocalRuntimeBitcodePath(),
       false);
+
+  remill::StoreModuleIRToFile(
+      lifted_code.get(),
+      Workspace::LocalRuntimeBitcodePath()+".ir",
+      false);
 }
 
 void Executor::Run(void){
   SetUp();
-  //for (const auto &info : initial_tasks){
-    
-  //}
+  for (const auto &memory: memories){
+    //const auto lifted_func_info = 
+  }
   TearDown();
 }
 
@@ -151,7 +155,7 @@ void Executor::AddInitialTask(const std::string &state, PC pc,
       llvm::ConstantInt::get(pc_type, static_cast<uint64_t>(pc)));
   initial_vals.push_back(llvm::ConstantInt::get(mem_type, task_num));
   initial_vals.push_back(
-      llvm::ConstantDataArray::getRaw(state, state.size(), u8_type));
+      llvm::getRaw(state.c_str(), state.size(), u8_type)());
 
   // Fill out the rest of the task structure with zero-initialization.
   for (size_t i = 3; i < elem_types.size(); ++i) {
@@ -164,7 +168,7 @@ void Executor::AddInitialTask(const std::string &state, PC pc,
 }
 
 LiftedBitcodeInfo Executor::GetLiftedFunction(Task *task) {
-  const auto memory = task->memory;
+  const auto memory = task->opaque_memory;
   const auto pc = task->pc;
   const auto task_pc_uint = static_cast<uint64_t>(pc);
 
@@ -175,7 +179,7 @@ LiftedBitcodeInfo Executor::GetLiftedFunction(Task *task) {
   info.lifted_func = trace_manager.GetLiftedTraceDefinition(task_pc_uint);
 
   if (!info.lifted_func) {
-    info.lifted_func = lifter.Lift(memory, task_pc_uint);
+    info.lifted_func = lifter.Lift(memories[memory].get(), task_pc_uint);
   }
 
   return info;

@@ -43,12 +43,6 @@ struct LiftedBitcodeInfo {
   uint64_t version;
 };
 
-struct InitialTaskInfo {
-  std::string state;
-  PC pc;
-  std::shared_ptr<AddressSpace> memory;
-};
-
 class Executor {
  public:
   Executor(void);

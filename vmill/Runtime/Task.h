@@ -75,13 +75,11 @@ enum MemoryValueType : uint16_t {
 //
 // `struct.Task {u64, u64, [u8 * N]}
 struct Task {
- private:
-  addr_t pc;
-  uint64_t opaque_memory;
-  uint8_t opaque_state[sizeof(ArchState)];
+  PC pc; //addr_t
+  uint64_t opaque_memory; 
+  uint8_t opaque_state[8]; //sizeof(ArchState)];
 
- public:
-  inline addr_t PC(void) const {
+  inline PC PC(void) const {
     return pc;
   }
   inline Memory *Memory(void) const {
