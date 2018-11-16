@@ -39,34 +39,44 @@
 #include "vmill/Workspace/Workspace.h"
 
 namespace llvm {
-class getRaw: public llvm::ConstantDataSequential {
-  public:
-      getRaw(const char *Data,uint64_t NumElements, Type *ElementTy):
-          ConstantDataSequential(ElementTy, Value::ValueTy() ,Data),
-          Data(StringRef(Data)),
-          ElementTy(ElementTy),
-          NumElements(NumElements){}
 
-      Constant *operator()(void){
-        Type *Ty = ArrayType::get(ElementTy, NumElements);
-        return ConstantDataArray::getImpl(Data, Ty);
-      }
- 
-  protected:
-     StringRef Data;
-     Type *ElementTy;
-     uint64_t NumElements;
+class getRaw : public llvm::ConstantDataSequential {
+ public:
+  getRaw(const char *Data, uint64_t NumElements, Type *ElementTy)
+      : ConstantDataSequential(ElementTy, Value::ValueTy(), Data),
+        Data(StringRef(Data)),
+        ElementTy(ElementTy),
+        NumElements(NumElements) {
+  }
+
+  Constant *operator()(void) {
+    Type *Ty = ArrayType::get(ElementTy, NumElements);
+    return ConstantDataArray::getImpl(Data, Ty);
+  }
+
+ protected:
+  StringRef Data;
+  Type *ElementTy;
+  uint64_t NumElements;
 };
+
+}  // namespace llvm
+namespace vmill {
+namespace {
+
+static llvm::Module *LoadRuntimeBitcode(llvm::LLVMContext *context) {
+  auto &runtime_bitcode_path = Workspace::RuntimeBitcodePath();
+  LOG(INFO)
+      << "Loading runtime bitcode file from " << runtime_bitcode_path;
+  return remill::LoadModuleFromFile(context, runtime_bitcode_path,
+                                    false  /* allow_failure */);
 }
 
-namespace vmill {
+}  // namespace
 
 Executor::Executor(void)
     : context(new llvm::LLVMContext),
-      lifted_code(remill::LoadModuleFromFile(
-          context.get(),
-          Workspace::RuntimeBitcodePath(),
-          false  /* allow_failure */)),
+      lifted_code(LoadRuntimeBitcode(context.get())),
       trace_manager(*lifted_code.get()),
       lifter(*lifted_code.get(), trace_manager){}
  
@@ -89,11 +99,6 @@ Executor::~Executor(void) {
   remill::StoreModuleToFile(
       lifted_code.get(),
       Workspace::LocalRuntimeBitcodePath(),
-      false);
-
-  remill::StoreModuleIRToFile(
-      lifted_code.get(),
-      Workspace::LocalRuntimeBitcodePath()+".ir",
       false);
 }
 
