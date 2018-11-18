@@ -73,22 +73,13 @@ enum MemoryValueType : uint16_t {
 // A task is like a thread, but really, it's the runtime that gives a bit more
 // meaning to threads.
 //
-// `struct.Task {u64, u64, [u8 * N]}
+// `struct.Task {[u8 * N], ...}
 struct Task {
-  PC pc; //addr_t
-  uint64_t opaque_memory; 
-  uint8_t opaque_state[3280]; //sizeof(ArchState)];
 
-  inline PC PC(void) const {
-    return pc;
-  }
+  uint8_t opaque_state[sizeof(State)];
 
-  inline Memory *Memory(void) const {
-    return reinterpret_cast<struct Memory *>(opaque_memory);
-  }
-
-  inline ArchState *State(void) {
-    return reinterpret_cast<ArchState *>(&(opaque_state[0]));
+  inline struct State *State(void) {
+    return reinterpret_cast<struct State *>(&(opaque_state[0]));
   }
 
 };

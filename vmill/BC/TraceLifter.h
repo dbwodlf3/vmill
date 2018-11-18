@@ -37,9 +37,13 @@ class TraceLifter {
  public:
   TraceLifter(llvm::Module &lifted_traces_, TraceManager &trace_manager_);
 
-  llvm::Function *Lift(AddressSpace *memory, uint64_t addr);
+  llvm::Function *GetLiftedFunction(AddressSpace *memory, uint64_t addr);
 
  private:
+  TraceLifter(void) = delete;
+
+  llvm::Function *Lift(AddressSpace *memory, uint64_t addr);
+
   llvm::LLVMContext &context;
   llvm::Module &traces_module;
   const std::unique_ptr<llvm::Module> semantics_module;

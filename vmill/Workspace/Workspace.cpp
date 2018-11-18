@@ -382,8 +382,7 @@ void Workspace::LoadSnapshotIntoExecutor(
         << "Adding task starting execution at " << std::hex << pc
         << " in address space " << std::dec << addr_space_id;
 
-    executor.AddInitialTask(
-        task.state(), static_cast<PC>(pc), memory);
+    executor.AddInitialTask(task.state(), pc, memory);
   }
 }
 

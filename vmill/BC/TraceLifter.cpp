@@ -57,20 +57,49 @@ TraceLifter::TraceLifter(llvm::Module &lifted_traces_,
       inst_lifter(remill::GetTargetArch(), intrinsics),
       trace_lifter_impl(inst_lifter, trace_manager) {}
 
+llvm::Function *TraceLifter::GetLiftedFunction(
+    AddressSpace *memory, uint64_t addr) {
+  auto func = trace_manager.GetLiftedTraceDefinition(addr);
+  if (func) {
+    CHECK(!func->isDeclaration());
+    return func;
+  }
+
+  // TODO(sae): Eventually remove this in favor of "importing" all lifted
+  //            traces already in `lifted_traces`.
+  const auto trace_name = trace_manager.TraceName(addr);
+  func = traces_module.getFunction(trace_name);
+  if (func) {
+    CHECK(!func->isDeclaration());
+    trace_manager.SetLiftedTraceDefinition(addr, func);
+    return func;
+  }
+
+  return Lift(memory, addr);
+}
+
 llvm::Function *TraceLifter::Lift(AddressSpace *memory, uint64_t addr) {
   
   std::unordered_map<uint64_t, llvm::Function *> new_lifted_traces;
 
   trace_manager.memory = memory;
-  trace_lifter_impl.Lift(addr);
+  trace_lifter_impl.Lift(
+      addr,
+      [&new_lifted_traces] (uint64_t trace_addr, llvm::Function *func) {
+        func->setLinkage(llvm::GlobalValue::ExternalLinkage);
+        new_lifted_traces[trace_addr] = func;
+      });
   trace_manager.memory = nullptr;
 
   //assumes remill::TraceLifter has all protected fields and no private fields
   remill::OptimizationGuide guide = {};
-  guide.slp_vectorize = true;
-  guide.loop_vectorize = true;
-  guide.verify_input = true;
+  guide.slp_vectorize = false;
+  guide.loop_vectorize = false;
+  guide.verify_input = false;
   guide.eliminate_dead_stores = false;  // Avoids buggy DSE for now.
+
+  LOG(INFO)
+      << "Optimizing lifted traces";
 
   remill::OptimizeModule(semantics_module, new_lifted_traces, guide);
 

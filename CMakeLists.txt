@@ -65,7 +65,6 @@ add_subdirectory(vmill/Runtime)
 
 add_library(${PROJECT_NAME} STATIC
     ${PROJECT_PROTOBUFSOURCEFILES}
-    vmill/Runtime/Task.cpp
     
     vmill/BC/TraceLifter.cpp
 

@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
+#include "vmill/Executor/Executor.h"
+
 #include <glog/logging.h>
 #include <gflags/gflags.h>
 
+#include <llvm/ADT/StringRef.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Constant.h>
 #include <llvm/IR/DerivedTypes.h>
-#include <llvm/ADT/StringRef.h>
+#include <llvm/IR/GlobalVariable.h>
 #include <llvm/IR/Type.h>
 
 #include "remill/BC/Util.h"
@@ -31,13 +34,13 @@
 #include "remill/BC/Util.h"
 #include "remill/OS/OS.h"
 
-#include "vmill/Executor/Executor.h"
-
 #include "vmill/BC/TraceLifter.h"
 #include "vmill/Program/AddressSpace.h"
 #include "vmill/Arch/Arch.h"
 #include "vmill/Workspace/Workspace.h"
+
 #include <iostream>
+
 namespace vmill {
 namespace {
 
@@ -62,6 +65,7 @@ void Executor::SetUp(void) {}
 void Executor::TearDown(void) {}
 
 Executor::~Executor(void) {
+
   // Reset all task vars to have null initializers.
   for (unsigned i = 0; ; i++) {
     const std::string task_var_name = "__vmill_task_" + std::to_string(i);
@@ -73,35 +77,59 @@ Executor::~Executor(void) {
         task_var->getInitializer()->getType()));
   }
 
+  // Save the runtime, including lifted bitcode, into the workspace. Next
+  // execution will load up this file.
   remill::StoreModuleToFile(
       lifted_code.get(),
       Workspace::LocalRuntimeBitcodePath(),
-      false);
-
-  remill::StoreModuleIRToFile(
-      lifted_code.get(),
-      Workspace::LocalRuntimeBitcodePath() + ".ir",
       false);
 }
 
 void Executor::Run(void) {
   SetUp();
-  for (const auto &memory : memories) {
+  while (!tasks.empty()) {
+    auto cont = tasks.front();
+    tasks.pop_front();
+
+    // TODO(sae): Interpret!!
+    LOG(INFO)
+        << "Interpreting " << cont.continuation->getName().str();
+
+    cont.continuation->dump();
   }
   TearDown();
 }
 
-void Executor::AddInitialTask(const std::string &state, PC pc,
+void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
                               std::shared_ptr<AddressSpace> memory) {
   CHECK(memories.empty());
 
-  auto task_num = memories.size();
+  const auto task_num = memories.size();
   memories.push_back(memory);
 
   const std::string task_var_name = "__vmill_task_" + std::to_string(task_num);
-  const auto task_var = lifted_code->getGlobalVariable(task_var_name);
-  CHECK(task_var != nullptr)
-      << "Missing task variable " << task_var_name << " in runtime";
+  auto task_var = lifted_code->getGlobalVariable(task_var_name);
+
+  // Lazily create the task variable if it's missing.
+  if (!task_var) {
+    CHECK(task_num)
+        << "Missing task variable " << task_var_name << " in runtime";
+
+    // Make sure that task variables are no gaps in the ordering of task
+    // variables.
+    const std::string prev_task_var_name =
+        "__vmill_task_" + std::to_string(task_num - 1);
+    const auto prev_task_var = lifted_code->getGlobalVariable(
+        prev_task_var_name);
+    CHECK(prev_task_var != nullptr)
+        << "Missing task variable " << prev_task_var_name << " in runtime";
+
+    task_var = new llvm::GlobalVariable(
+        *lifted_code, prev_task_var->getValueType(), false /* isConstant */,
+        llvm::GlobalValue::ExternalLinkage,
+        llvm::Constant::getNullValue(prev_task_var->getValueType()),
+        task_var_name);
+  }
 
   auto task_struct_type = llvm::dyn_cast<llvm::StructType>(
       task_var->getInitializer()->getType());
@@ -109,26 +137,18 @@ void Executor::AddInitialTask(const std::string &state, PC pc,
       << "Task variable " << task_var_name << " must have a vmill::Task type";
 
   auto elem_types = task_struct_type->elements();
-  CHECK_GE(elem_types.size(), 3)
+  CHECK_GE(elem_types.size(), 1)
       << "Task structure type for " << task_var_name << " should have at least "
-      << "three elements";
+      << "one element";
 
-  auto pc_type = llvm::dyn_cast<llvm::IntegerType>(elem_types[0]);
-  CHECK(pc_type != nullptr)
-      << "First element type of " << task_var_name << " should be integral";
-
-  auto mem_type = llvm::dyn_cast<llvm::IntegerType>(elem_types[1]);
-  CHECK(mem_type != nullptr)
-      << "Second element type of " << task_var_name << " should be integral";
-
-  auto state_type = llvm::dyn_cast<llvm::ArrayType>(elem_types[2]);
+  auto state_type = llvm::dyn_cast<llvm::ArrayType>(elem_types[0]);
   CHECK(state_type != nullptr)
-      << "Third element type of " << task_var_name << " should be an array";
+      << "First element type of " << task_var_name << " should be an array";
 
   auto el_type = state_type->getArrayElementType();
   auto u8_type = llvm::Type::getInt8Ty(*context);
   CHECK_EQ(el_type, u8_type)
-      << "Third element type of " << task_var_name
+      << "First element type of " << task_var_name
       << " should be an array of uint8_t";
 
   CHECK_EQ(state_type->getArrayNumElements(), state.size())
@@ -136,44 +156,53 @@ void Executor::AddInitialTask(const std::string &state, PC pc,
       << "bytes, but runtime state structure needs "
       << state_type->getArrayNumElements();
 
-  std::vector<llvm::Constant *> initial_vals;
-  initial_vals.push_back(
-      llvm::ConstantInt::get(pc_type, static_cast<uint64_t>(pc)));
-  initial_vals.push_back(llvm::ConstantInt::get(mem_type, task_num));
-
   std::vector<uint8_t> bytes;
   bytes.reserve(state.size());
   for (auto c : state) {
     bytes.push_back(static_cast<uint8_t>(c));
   }
+
+  std::vector<llvm::Constant *> initial_vals;
   initial_vals.push_back(llvm::ConstantDataArray::get(*context, bytes));
 
   // Fill out the rest of the task structure with zero-initialization.
-  for (size_t i = 3; i < elem_types.size(); ++i) {
+  for (size_t i = 1; i < elem_types.size(); ++i) {
     initial_vals.push_back(llvm::Constant::getNullValue(elem_types[i]));
   }
 
   // Initialize this task with the data from the snapshot.
   task_var->setInitializer(
       llvm::ConstantStruct::get(task_struct_type, initial_vals));
-}
 
-LiftedBitcodeInfo Executor::GetLiftedFunction(Task *task) {
-  const auto memory = task->opaque_memory;
-  const auto pc = task->pc;
-  const auto task_pc_uint = static_cast<uint64_t>(pc);
+  LOG(INFO)
+      << "Added register state information to " << task_var_name;
 
-  LiftedBitcodeInfo info;
+  TaskContinuation cont;
+  cont.continuation = lifter.GetLiftedFunction(memory.get(), pc);
 
-  info.pc = pc;
-  info.version = 0;
-  info.lifted_func = trace_manager.GetLiftedTraceDefinition(task_pc_uint);
+  auto pc_arg = remill::NthArgument(
+      cont.continuation, remill::kPCArgNum);
+  auto mem_arg = remill::NthArgument(
+      cont.continuation, remill::kMemoryPointerArgNum);
+  auto state_arg = remill::NthArgument(
+      cont.continuation, remill::kStatePointerArgNum);
 
-  if (!info.lifted_func) {
-    info.lifted_func = lifter.Lift(memories[memory].get(), task_pc_uint);
-  }
+  auto pc_type = llvm::dyn_cast<llvm::IntegerType>(pc_arg->getType());
+  CHECK(pc_type != nullptr);
 
-  return info;
+  auto mem_ptr_type = llvm::dyn_cast<llvm::PointerType>(mem_arg->getType());
+  CHECK(mem_ptr_type != nullptr);
+
+  auto state_ptr_type = llvm::dyn_cast<llvm::PointerType>(state_arg->getType());
+  CHECK(state_ptr_type != nullptr);
+
+  cont.args[remill::kPCArgNum] = llvm::ConstantInt::get(pc_type, pc);
+  cont.args[remill::kMemoryPointerArgNum] = llvm::ConstantExpr::getIntToPtr(
+      llvm::ConstantInt::get(pc_type, task_num), mem_ptr_type);
+  cont.args[remill::kStatePointerArgNum] = llvm::ConstantExpr::getBitCast(
+        task_var, state_ptr_type);
+
+  tasks.push_back(cont);
 }
 
 }  //namespace vmill

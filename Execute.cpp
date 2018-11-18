@@ -21,6 +21,8 @@
 #include <llvm/IR/Module.h>
 #include <llvm/Support/ManagedStatic.h>
 
+#include "remill/Arch/Arch.h"
+
 #include "vmill/BC/TraceLifter.h"
 #include "vmill/Executor/Executor.h"
 #include "vmill/Workspace/Workspace.h"
@@ -28,6 +30,10 @@
 #include "vmill/Program/AddressSpace.h"
 
 #include <iostream>
+
+DECLARE_string(os);
+DECLARE_string(arch);
+
 int main(int argc, char **argv) {
   std::stringstream ss;
   ss << std::endl << std::endl
@@ -39,9 +45,22 @@ int main(int argc, char **argv) {
   google::SetUsageMessage(ss.str());
   google::ParseCommandLineFlags(&argc, &argv, true);
 
+  FLAGS_logtostderr = true;
+
   auto snapshot = vmill::LoadSnapshotFromFile(vmill::Workspace::SnapshotPath());
+
+  // Take in the OS and arch names from the snapshot.
+  FLAGS_os = snapshot->os();
+  FLAGS_arch = snapshot->arch();
+
+  // Make sure that we support the snapshotted arch/os combination.
+  CHECK(remill::GetTargetArch() != nullptr)
+      << "Can't find architecture for " << FLAGS_os << " and " << FLAGS_arch;
+
   vmill::Executor executor;
   vmill::Workspace::LoadSnapshotIntoExecutor(snapshot, executor);
   executor.Run();
   llvm::llvm_shutdown();
+
+  return EXIT_SUCCESS;
 }
