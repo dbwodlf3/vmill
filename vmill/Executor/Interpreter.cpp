@@ -15,10 +15,13 @@
  */
 #include <glog/logging.h>
 
-#include "llvm/InstVisitor.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Support/SourceMgr.h"
+
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/InstVisitor.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Constant.h"
 
 #include "vmill/Executor/TraceManager.h"
 #include "vmill/Executor/Runtime.h"
@@ -26,23 +29,9 @@
 
 #include "vmill/Program/AddressSpace.h"
 
-#include "vmill/third_party/klee/klee.h"
-#include "vmill/third_party/klee/Interpreter.h"
-#include "vmill/third_party/llvm/Interpreter.h"
-
-namespace llvm {
-  class ExecutionEngine;
-  class VmillInterpreter;
-  class Function;
-  class Module;
-}
-
-namespace klee {
-  class Interpreter;
-  class InterpreterOptions;
-  class InterpreterHandler;
-  class ExecutionState;
-}
+#include "third_party/klee/klee.h"
+#include "third_party/klee/Interpreter.h"
+#include "third_party/llvm/Interpreter.h"
 
 //perform concrete execution
 //mark variables as symbolic in emulator and address space
@@ -50,27 +39,8 @@ namespace klee {
 
 namespace vmill {
 
-class Interpreter{
-  public:
-    Interpreter *Create(llvm::Module *module);
-    void symbolic_execute(llvm::Function *func, llvm::Value *args) = 0;
-    void concrete_execute(llvm::Function *func, llvm::Value *args) = 0;
-  protected:
-    Interpreter(void){}
-    ~Interpreter(void) = 0;
-};
-
 //utility class that will handle calls to the vmill runtime
-class Handler {
-  public:
-    Handler(void){}
-    ~Handler(void){}
-    void handle(llvm::Instruction *instr, 
-       std::deque<TaskContinuation> &tasks);
-};
-
-
-void Handler::handle(llvm::Instruction *instr,
+void Handler::handle(llvm::Instruction &instr,
               std::deque<TaskContinuation> &tasks) {
   //basically a huge switch case that performs actions based off of the instruction
   //and calls into the runtime an example would be something like
@@ -80,15 +50,15 @@ void Handler::handle(llvm::Instruction *instr,
 //*** FOCUS ON CONCRETE EXECUTION AND HOOKING FOR NOW IN THE INTERPRETER
 
 class InterpreterImpl: public llvm::VmillInterpreter, 
-                       public klee::Interpreter,
+                       //public klee::Interpreter,
                        public Interpreter {
     public:
       explicit InterpreterImpl(llvm::Module *module_, 
                                std::deque<TaskContinuation> &tasks_):
-          llvm::VmillInterpreter(std::unique_ptr<Module>(module_)),
-          klee::Interpreter(klee::InterpreterOptions()),
+          llvm::VmillInterpreter(std::unique_ptr<llvm::Module>(module_)),
+          //klee::Interpreter(klee::InterpreterOptions()),
           Interpreter(),
-          handler(Handler());
+          handler(Handler()),
           module(module_),
           tasks(tasks_){}
 
@@ -100,28 +70,33 @@ class InterpreterImpl: public llvm::VmillInterpreter,
 
       void run_and_handle(){
         while(!ECStack.empty()){
-          ExecutionContext &SF = ECStack.back();
-          Instruction &I = *SF.CurInst++;
-		  if (I.getOpcode() == Instruction::Call){
-          	Handler.handle(I, tasks); //can appropriately hook functions
+          llvm::VmillExecutionContext &SF = ECStack.back();
+          llvm::Instruction &I = *SF.CurInst++;
+		  if (I.getOpcode() == llvm::Instruction::Call){
+          	handler.handle(I, tasks); //can appropriately hook functions 
 		  } else {
             visit(I);
           }
-          ++NumDynamicInsts;
         }
       }
 
       //handles emulator runtime with handler and executes function concretely
-      void run_function(llvm::Function *func, ArrayRef<GenericValue> ArgValues){
-		const size_t ArgCount = F->getFunctionType()->getNumParams();
-		ArrayRef<GenericValue> ActualArgs =
+      void run_function(llvm::Function *func, llvm::ArrayRef<llvm::GenericValue> ArgValues){
+		const size_t ArgCount = func->getFunctionType()->getNumParams();
+        llvm::ArrayRef<llvm::GenericValue> ActualArgs =
 			ArgValues.slice(0, std::min(ArgValues.size(), ArgCount));
-		llvm::VmillInterpreter::callFunction(F, ActualArgs);
+		llvm::VmillInterpreter::callFunction(func, ActualArgs);
 		run_and_handle();
 	  }
     
       void concrete_execute(llvm::Function *func, llvm::Value *args){
-        llvm::ArrayRef<GenericValue> argv({args[0], args[1], args[2]});
+        std::vector<llvm::GenericValue> argv;
+        const uint64_t arg_count = func->getFunctionType()->getNumParams(); //should be 3
+        LOG(INFO) << "arg count is " << arg_count;
+        for (size_t arg_num=0; arg_num<arg_count; ++arg_num){
+          argv.push_back(
+                  ConstantToGeneric(llvm::dyn_cast<llvm::Constant>(args+arg_num)));
+        }
         run_function(func, argv);
       }
      
@@ -130,4 +105,11 @@ class InterpreterImpl: public llvm::VmillInterpreter,
       std::shared_ptr<llvm::Module> module;
       std::deque<TaskContinuation> &tasks;
 };
+
+std::unique_ptr<Interpreter> Interpreter::Create(llvm::Module *module,
+        std::deque<TaskContinuation> &tasks){
+  return std::unique_ptr<Interpreter>(
+          new InterpreterImpl(module, tasks));
+}
+
 }  // namespace vmill

@@ -74,7 +74,7 @@ namespace llvm {
  
  // Interpreter - This class represents the entirety of the interpreter.
  //
- class VmillInterpreter : public ExecutionEngine, public InstVisitor<Interpreter> {
+ class VmillInterpreter : public ExecutionEngine, public InstVisitor<VmillInterpreter> {
  protected: //monkey patch so I can access values for a custom runFunction method that interacts with handler
    GenericValue ExitValue;          // The return value of the called function
    IntrinsicLowering *IL;
@@ -86,6 +86,8 @@ namespace llvm {
    // AtExitHandlers - List of functions to call when the program exits,
    // registered with the atexit() library function.
    std::vector<Function*> AtExitHandlers;
+
+   GenericValue ConstantToGeneric(const Constant *C);
  
  public:
    explicit VmillInterpreter(std::unique_ptr<Module> M);

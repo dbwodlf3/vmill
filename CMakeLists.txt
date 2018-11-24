@@ -72,6 +72,7 @@ add_library(${PROJECT_NAME} STATIC
 
     vmill/Executor/Executor.cpp
     vmill/Executor/TraceManager.cpp
+    vmill/Executor/Interpreter.cpp
     
     vmill/Program/AddressSpace.cpp
     vmill/Program/MappedRange.cpp
@@ -86,6 +87,8 @@ add_library(${PROJECT_NAME} STATIC
 
     
     third_party/xxHash/xxhash.c
+    third_party/llvm/Execution.cpp
+    third_party/llvm/Interpreter.cpp
 )
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
