@@ -61,6 +61,5 @@ int main(int argc, char **argv) {
   vmill::Workspace::LoadSnapshotIntoExecutor(snapshot, executor);
   executor.Run();
   llvm::llvm_shutdown();
-
   return EXIT_SUCCESS;
 }
