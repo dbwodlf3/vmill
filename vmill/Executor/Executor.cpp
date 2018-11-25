@@ -15,6 +15,7 @@
  */
 
 #include "vmill/Executor/Executor.h"
+#include "vmill/Executor/Interpreter.h"
 
 #include <glog/logging.h>
 #include <gflags/gflags.h>
@@ -39,8 +40,6 @@
 #include "vmill/Arch/Arch.h"
 #include "vmill/Workspace/Workspace.h"
 
-#include <iostream>
-
 namespace vmill {
 namespace {
 
@@ -58,7 +57,8 @@ Executor::Executor(void)
     : context(new llvm::LLVMContext),
       lifted_code(LoadRuntimeBitcode(context.get())),
       trace_manager(*lifted_code.get()),
-      lifter(*lifted_code.get(), trace_manager){}
+      lifter(*lifted_code.get(), trace_manager),
+      interpreter(Interpreter::Create(lifted_code.get(),tasks)){}
  
 void Executor::SetUp(void) {}
 
@@ -69,7 +69,7 @@ Executor::~Executor(void) {
   // Reset all task vars to have null initializers.
   for (unsigned i = 0; ; i++) {
     const std::string task_var_name = "__vmill_task_" + std::to_string(i);
-    const auto task_var = lifted_code->getGlobalVariable(task_var_name);
+    const auto task_var = lifted_code.get() -> getGlobalVariable(task_var_name);
     if (!task_var) {
       break;
     }
@@ -91,7 +91,8 @@ void Executor::Run(void) {
     auto cont = tasks.front();
     tasks.pop_front();
 
-    // TODO(sae): Interpret!!
+    // TODO(sai): Interpret!!
+    interpreter->concrete_execute(cont.continuation, cont.args);
     LOG(INFO)
         << "Interpreting " << cont.continuation->getName().str();
 
@@ -125,7 +126,7 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
         << "Missing task variable " << prev_task_var_name << " in runtime";
 
     task_var = new llvm::GlobalVariable(
-        *lifted_code, prev_task_var->getValueType(), false /* isConstant */,
+        *lifted_code.get(), prev_task_var->getValueType(), false /* isConstant */,
         llvm::GlobalValue::ExternalLinkage,
         llvm::Constant::getNullValue(prev_task_var->getValueType()),
         task_var_name);

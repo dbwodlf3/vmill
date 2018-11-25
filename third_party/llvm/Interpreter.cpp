@@ -16,6 +16,7 @@
  #include "llvm/CodeGen/IntrinsicLowering.h"
  #include "llvm/IR/DerivedTypes.h"
  #include "llvm/IR/Module.h"
+ #include <iostream>
  #include <cstring>
  using namespace llvm;
  
@@ -64,6 +65,7 @@
  }
  
  VmillInterpreter::~VmillInterpreter() {
+   std::cout << "llvm interpreter was burned" << std::endl; 
    delete IL;
  }
  

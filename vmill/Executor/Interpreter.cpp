@@ -62,9 +62,11 @@ class InterpreterImpl: public llvm::VmillInterpreter,
           module(module_),
           tasks(tasks_){}
 
+      virtual ~InterpreterImpl(void){}
+
       //will call to klee's interpreter once all buffers have been marked symbolic
       //and the handler has already added to the tasks and address space
-      void symbolic_execute(llvm::Function *func, llvm::Value *args){
+      void symbolic_execute(llvm::Function *func, llvm::Value **args){
       
       }
 
@@ -73,6 +75,7 @@ class InterpreterImpl: public llvm::VmillInterpreter,
           llvm::VmillExecutionContext &SF = ECStack.back();
           llvm::Instruction &I = *SF.CurInst++;
 		  if (I.getOpcode() == llvm::Instruction::Call){
+            llvm::dbgs() << "call is to " << I << '\n';
           	handler.handle(I, tasks); //can appropriately hook functions 
 		  } else {
             visit(I);
@@ -89,13 +92,15 @@ class InterpreterImpl: public llvm::VmillInterpreter,
 		run_and_handle();
 	  }
     
-      void concrete_execute(llvm::Function *func, llvm::Value *args){
+      void concrete_execute(llvm::Function *func, llvm::Value **args){
         std::vector<llvm::GenericValue> argv;
         const uint64_t arg_count = func->getFunctionType()->getNumParams(); //should be 3
-        LOG(INFO) << "arg count is " << arg_count;
+        LOG(INFO) << "arg count is " << arg_count << 
+            " in concrete_execute function";
         for (size_t arg_num=0; arg_num<arg_count; ++arg_num){
           argv.push_back(
-                  ConstantToGeneric(llvm::dyn_cast<llvm::Constant>(args+arg_num)));
+                  ConstantToGeneric(
+                      llvm::dyn_cast<llvm::Constant>(args[arg_num])));
         }
         run_function(func, argv);
       }
@@ -106,10 +111,9 @@ class InterpreterImpl: public llvm::VmillInterpreter,
       std::deque<TaskContinuation> &tasks;
 };
 
-std::unique_ptr<Interpreter> Interpreter::Create(llvm::Module *module,
+Interpreter *Interpreter::Create(llvm::Module *module,
         std::deque<TaskContinuation> &tasks){
-  return std::unique_ptr<Interpreter>(
-          new InterpreterImpl(module, tasks));
+  return new InterpreterImpl(module, tasks);
 }
 
 }  // namespace vmill

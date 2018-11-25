@@ -42,16 +42,20 @@ namespace klee {
   class ExecutionState;
 } //namespace klee
 
+#include <iostream>
 namespace vmill {
 
 class Interpreter{
   public:
-    std::unique_ptr<Interpreter> Create(llvm::Module *module, 
+    static Interpreter *Create(llvm::Module *module, 
             std::deque<TaskContinuation> &tasks);
-    virtual void symbolic_execute(llvm::Function *func, llvm::Value *args) = 0;
-    virtual void concrete_execute(llvm::Function *func, llvm::Value *args) = 0;
-    Interpreter(void){};
+    virtual void symbolic_execute(llvm::Function *func, 
+            llvm::Value **args) = 0;
+    virtual void concrete_execute(llvm::Function *func, 
+            llvm::Value **args) = 0;
     ~Interpreter(void){};
+  protected:
+    Interpreter(void){};
 };
 
 //utility class that will handle calls to the vmill runtime

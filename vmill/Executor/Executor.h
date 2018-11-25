@@ -36,6 +36,7 @@ namespace vmill {
 
 class AddressSpace;
 class Lifter;
+class Interpreter;
 
 class TaskContinuation {
  public:
@@ -58,6 +59,7 @@ class Executor {
   std::unique_ptr<llvm::Module> lifted_code;
   TraceManager trace_manager;
   TraceLifter lifter;
+  Interpreter *interpreter;
   std::vector<std::shared_ptr<AddressSpace>> memories;
   std::deque<TaskContinuation> tasks;
 };
