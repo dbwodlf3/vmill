@@ -56,7 +56,7 @@ class Executor {
 
  private:
   std::shared_ptr<llvm::LLVMContext> context;
-  std::unique_ptr<llvm::Module> lifted_code;
+  llvm::Module *lifted_code;
   TraceManager trace_manager;
   TraceLifter lifter;
   Interpreter *interpreter;

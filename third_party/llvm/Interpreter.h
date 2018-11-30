@@ -88,6 +88,8 @@ namespace llvm {
    std::vector<Function*> AtExitHandlers;
 
    GenericValue ConstantToGeneric(const Constant *C);
+
+   GenericValue getOperandValue(Value *V, VmillExecutionContext &SF);
  
  public:
    explicit VmillInterpreter(std::unique_ptr<Module> M);
@@ -203,7 +205,6 @@ namespace llvm {
    void initializeExecutionEngine() { }
    void initializeExternalFunctions();
    GenericValue getConstantExprValue(ConstantExpr *CE, VmillExecutionContext &SF);
-   GenericValue getOperandValue(Value *V, VmillExecutionContext &SF);
    GenericValue executeTruncInst(Value *SrcVal, Type *DstTy,
                                  VmillExecutionContext &SF);
    GenericValue executeSExtInst(Value *SrcVal, Type *DstTy,

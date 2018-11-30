@@ -33,38 +33,42 @@ namespace llvm {
   class Function;
   class Module;
   class Value;
-} //namespace llvm
+  class VmillExecutionContext;
+} //  namespace llvm
 
 namespace klee {
   class Interpreter;
   class InterpreterOptions;
   class InterpreterHandler;
   class ExecutionState;
-} //namespace klee
+} //  namespace klee
 
-#include <iostream>
 namespace vmill {
 
 class Interpreter{
   public:
-    static Interpreter *Create(llvm::Module *module, 
+    static  Interpreter *Create(llvm::Module *module, 
             std::deque<TaskContinuation> &tasks);
     virtual void symbolic_execute(llvm::Function *func, 
             llvm::Value **args) = 0;
     virtual void concrete_execute(llvm::Function *func, 
             llvm::Value **args) = 0;
-    ~Interpreter(void){};
+    ~Interpreter(void) = default;
   protected:
-    Interpreter(void){};
+    Interpreter(void) = default;
 };
 
-//utility class that will handle calls to the vmill runtime
 class Handler {
+  /*  utility class that will handle calls to the vmill runtime
+   *  must be extended to create tasks with the PC, STATE, and MEMORY ARGS
+   *  in the current program state */
   public:
-    Handler(void){}
-    ~Handler(void){}
-    void handle(llvm::Instruction &instr, 
+    Handler(void) = default;
+    ~Handler(void) = default;
+    bool handle(
+       llvm::Instruction *instr,
+       llvm::Function *func, 
        std::deque<TaskContinuation> &tasks);
 };
 
-}  // namespace vmill
+}  //  namespace vmill

@@ -33,87 +33,111 @@
 #include "third_party/klee/Interpreter.h"
 #include "third_party/llvm/Interpreter.h"
 
-//perform concrete execution
-//mark variables as symbolic in emulator and address space
-//when encountered throw function into symbolic klee interpreter
-
 namespace vmill {
+  
+bool Handler::handle(
+        llvm::Instruction *instr,
+        llvm::Function *func,
+        std::deque<TaskContinuation> &tasks) {   
+  
+  auto func_name = func->getName().str();
 
-//utility class that will handle calls to the vmill runtime
-void Handler::handle(llvm::Instruction &instr,
-              std::deque<TaskContinuation> &tasks) {
-  //basically a huge switch case that performs actions based off of the instruction
-  //and calls into the runtime an example would be something like
-  //marking a buffer as symbolic in the read syscall runtime implementation
+  LOG(INFO) << "call to " << func_name;
+  
+  if (func_name == "__remill_write_memory_64") {
+
+  } else if (func_name == "__remill_missing_block") {
+
+  } else if (func_name == "__remill_jump") {
+      auto pc_arg = nullptr;
+      auto op1 = instr->getOperand(0);
+      auto op2 = instr->getOperand(1);
+      auto op3 = instr->getOperand(2);
+      auto op4 = instr->getOperand(3);
+
+      llvm::dbgs() << "***********************************\n";
+      llvm::dbgs() << op1 << "  "<< op2 << "  " << op3 << " " << op4;
+      llvm::dbgs() << "***********************************\n";
+
+  } else if (func_name == "__remill_function_call") {
+  
+  } else if (func_name == "__remill_sync_hyper_call") {
+
+  } else if (func_name == "__remill_async_hyper_call") {
+
+  } else if (func_name.compare(0,1,"_") != 0) {
+      return false;
+  }
+  //  pc, memory, and state must be extracted
+  //  __remill_async_hyper_call(pc, memory, state); (perhaps called in handler)
+  return true;
 }
-
-//*** FOCUS ON CONCRETE EXECUTION AND HOOKING FOR NOW IN THE INTERPRETER
 
 class InterpreterImpl: public llvm::VmillInterpreter, 
                        //public klee::Interpreter,
                        public Interpreter {
-    public:
-      explicit InterpreterImpl(llvm::Module *module_, 
-                               std::deque<TaskContinuation> &tasks_):
-          llvm::VmillInterpreter(std::unique_ptr<llvm::Module>(module_)),
-          //klee::Interpreter(klee::InterpreterOptions()),
-          Interpreter(),
-          handler(Handler()),
-          module(module_),
-          tasks(tasks_){}
+  public:
+    explicit InterpreterImpl(llvm::Module *module_, 
+            std::deque<TaskContinuation> &tasks_):
+      llvm::VmillInterpreter(std::unique_ptr<llvm::Module>(module_)),
+      //klee::Interpreter(klee::InterpreterOptions()),
+      Interpreter(),
+      handler(Handler()),
+      module(module_),
+      tasks(tasks_) {}
 
-      virtual ~InterpreterImpl(void){}
+      virtual ~InterpreterImpl(void) = default;
 
-      //will call to klee's interpreter once all buffers have been marked symbolic
-      //and the handler has already added to the tasks and address space
       void symbolic_execute(llvm::Function *func, llvm::Value **args){
-      
+        //  will call to klee's interpreter once all buffers have been marked symbolic
+        //  and the handler has already added to the tasks and address space
       }
 
       void run_and_handle(){
         while(!ECStack.empty()){
           llvm::VmillExecutionContext &SF = ECStack.back();
           llvm::Instruction &I = *SF.CurInst++;
-		  if (I.getOpcode() == llvm::Instruction::Call){
-            llvm::dbgs() << "call is to " << I << '\n';
-          	handler.handle(I, tasks); //can appropriately hook functions 
-		  } else {
+          if (I.getOpcode() == llvm::Instruction::Call){
+            auto ins = llvm::cast<llvm::CallInst>(&I);
+            llvm::GenericValue src = getOperandValue(ins->getCalledValue(),SF);
+            auto called_func_ptr = (llvm::Function*)llvm::GVTOP(src);
+            bool is_handled = handler.handle(&I, called_func_ptr, tasks); //  can hook functions 
+            if (!is_handled) {
+              visit(I);
+            }
+          } else {
             visit(I);
           }
         }
       }
 
-      //handles emulator runtime with handler and executes function concretely
       void run_function(llvm::Function *func, llvm::ArrayRef<llvm::GenericValue> ArgValues){
-		const size_t ArgCount = func->getFunctionType()->getNumParams();
+        const size_t ArgCount = func->getFunctionType()->getNumParams();
         llvm::ArrayRef<llvm::GenericValue> ActualArgs =
-			ArgValues.slice(0, std::min(ArgValues.size(), ArgCount));
-		llvm::VmillInterpreter::callFunction(func, ActualArgs);
-		run_and_handle();
-	  }
-    
+            ArgValues.slice(0, std::min(ArgValues.size(), ArgCount));
+        llvm::VmillInterpreter::callFunction(func, ActualArgs);
+        run_and_handle();
+      }
+
       void concrete_execute(llvm::Function *func, llvm::Value **args){
         std::vector<llvm::GenericValue> argv;
-        const uint64_t arg_count = func->getFunctionType()->getNumParams(); //should be 3
-        LOG(INFO) << "arg count is " << arg_count << 
-            " in concrete_execute function";
+        const uint64_t arg_count = func->getFunctionType()->getNumParams(); //  should be 3
+        LOG(INFO) << "arg count is " << arg_count << " in concrete_execute function";
         for (size_t arg_num=0; arg_num<arg_count; ++arg_num){
-          argv.push_back(
-                  ConstantToGeneric(
+          argv.push_back(ConstantToGeneric(
                       llvm::dyn_cast<llvm::Constant>(args[arg_num])));
         }
         run_function(func, argv);
       }
      
-    private:
-      Handler handler;
-      std::shared_ptr<llvm::Module> module;
-      std::deque<TaskContinuation> &tasks;
+  private:
+    Handler handler;
+    std::shared_ptr<llvm::Module> module;
+    std::deque<TaskContinuation> &tasks;
 };
 
 Interpreter *Interpreter::Create(llvm::Module *module,
         std::deque<TaskContinuation> &tasks){
   return new InterpreterImpl(module, tasks);
 }
-
-}  // namespace vmill
+}  //  namespace vmill

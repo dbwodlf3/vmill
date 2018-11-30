@@ -56,9 +56,9 @@ static llvm::Module *LoadRuntimeBitcode(llvm::LLVMContext *context) {
 Executor::Executor(void)
     : context(new llvm::LLVMContext),
       lifted_code(LoadRuntimeBitcode(context.get())),
-      trace_manager(*lifted_code.get()),
-      lifter(*lifted_code.get(), trace_manager),
-      interpreter(Interpreter::Create(lifted_code.get(),tasks)){}
+      trace_manager(*lifted_code),
+      lifter(*lifted_code, trace_manager),
+      interpreter(Interpreter::Create(lifted_code,tasks)){}
  
 void Executor::SetUp(void) {}
 
@@ -69,7 +69,7 @@ Executor::~Executor(void) {
   // Reset all task vars to have null initializers.
   for (unsigned i = 0; ; i++) {
     const std::string task_var_name = "__vmill_task_" + std::to_string(i);
-    const auto task_var = lifted_code.get() -> getGlobalVariable(task_var_name);
+    const auto task_var = lifted_code -> getGlobalVariable(task_var_name);
     if (!task_var) {
       break;
     }
@@ -80,7 +80,7 @@ Executor::~Executor(void) {
   // Save the runtime, including lifted bitcode, into the workspace. Next
   // execution will load up this file.
   remill::StoreModuleToFile(
-      lifted_code.get(),
+      lifted_code,
       Workspace::LocalRuntimeBitcodePath(),
       false);
 }
@@ -93,6 +93,7 @@ void Executor::Run(void) {
 
     // TODO(sai): Interpret!!
     interpreter->concrete_execute(cont.continuation, cont.args);
+
     LOG(INFO)
         << "Interpreting " << cont.continuation->getName().str();
 
@@ -126,7 +127,7 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
         << "Missing task variable " << prev_task_var_name << " in runtime";
 
     task_var = new llvm::GlobalVariable(
-        *lifted_code.get(), prev_task_var->getValueType(), false /* isConstant */,
+        *lifted_code, prev_task_var->getValueType(), false /* isConstant */,
         llvm::GlobalValue::ExternalLinkage,
         llvm::Constant::getNullValue(prev_task_var->getValueType()),
         task_var_name);
