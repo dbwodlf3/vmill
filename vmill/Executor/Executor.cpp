@@ -58,7 +58,7 @@ Executor::Executor(void)
       lifted_code(LoadRuntimeBitcode(context.get())),
       trace_manager(*lifted_code),
       lifter(*lifted_code, trace_manager),
-      interpreter(Interpreter::Create(lifted_code,tasks)){}
+      interpreter(Interpreter::CreateConcrete(lifted_code,tasks)){}
  
 void Executor::SetUp(void) {}
 
@@ -91,8 +91,7 @@ void Executor::Run(void) {
     auto cont = tasks.front();
     tasks.pop_front();
 
-    // TODO(sai): Interpret!!
-    interpreter->concrete_execute(cont.continuation, cont.args);
+    interpreter->Interpret(cont.continuation, cont.args);
 
     LOG(INFO)
         << "Interpreting " << cont.continuation->getName().str();
@@ -204,7 +203,7 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
   cont.args[remill::kStatePointerArgNum] = llvm::ConstantExpr::getBitCast(
         task_var, state_ptr_type);
 
-  tasks.push_back(cont);
+  tasks.push_back(interpreter->ConvertContinuationToTask(cont));
 }
 
 }  //namespace vmill

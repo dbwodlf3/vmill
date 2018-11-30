@@ -33,111 +33,160 @@
 #include "third_party/klee/Interpreter.h"
 #include "third_party/llvm/Interpreter.h"
 
+#include "remill/BC/ABI.h"
+#include "remill/BC/IntrinsicTable.h"
+
 namespace vmill {
-  
-bool Handler::handle(
-        llvm::Instruction *instr,
-        llvm::Function *func,
-        std::deque<TaskContinuation> &tasks) {   
-  
-  auto func_name = func->getName().str();
 
-  LOG(INFO) << "call to " << func_name;
-  
-  if (func_name == "__remill_write_memory_64") {
-
-  } else if (func_name == "__remill_missing_block") {
-
-  } else if (func_name == "__remill_jump") {
-      auto pc_arg = nullptr;
-      auto op1 = instr->getOperand(0);
-      auto op2 = instr->getOperand(1);
-      auto op3 = instr->getOperand(2);
-      auto op4 = instr->getOperand(3);
-
-      llvm::dbgs() << "***********************************\n";
-      llvm::dbgs() << op1 << "  "<< op2 << "  " << op3 << " " << op4;
-      llvm::dbgs() << "***********************************\n";
-
-  } else if (func_name == "__remill_function_call") {
-  
-  } else if (func_name == "__remill_sync_hyper_call") {
-
-  } else if (func_name == "__remill_async_hyper_call") {
-
-  } else if (func_name.compare(0,1,"_") != 0) {
-      return false;
-  }
-  //  pc, memory, and state must be extracted
-  //  __remill_async_hyper_call(pc, memory, state); (perhaps called in handler)
-  return true;
-}
-
-class InterpreterImpl: public llvm::VmillInterpreter, 
-                       //public klee::Interpreter,
-                       public Interpreter {
-  public:
-    explicit InterpreterImpl(llvm::Module *module_, 
-            std::deque<TaskContinuation> &tasks_):
-      llvm::VmillInterpreter(std::unique_ptr<llvm::Module>(module_)),
-      //klee::Interpreter(klee::InterpreterOptions()),
-      Interpreter(),
-      handler(Handler()),
-      module(module_),
-      tasks(tasks_) {}
-
-      virtual ~InterpreterImpl(void) = default;
-
-      void symbolic_execute(llvm::Function *func, llvm::Value **args){
-        //  will call to klee's interpreter once all buffers have been marked symbolic
-        //  and the handler has already added to the tasks and address space
-      }
-
-      void run_and_handle(){
-        while(!ECStack.empty()){
-          llvm::VmillExecutionContext &SF = ECStack.back();
-          llvm::Instruction &I = *SF.CurInst++;
-          if (I.getOpcode() == llvm::Instruction::Call){
-            auto ins = llvm::cast<llvm::CallInst>(&I);
-            llvm::GenericValue src = getOperandValue(ins->getCalledValue(),SF);
-            auto called_func_ptr = (llvm::Function*)llvm::GVTOP(src);
-            bool is_handled = handler.handle(&I, called_func_ptr, tasks); //  can hook functions 
-            if (!is_handled) {
-              visit(I);
-            }
-          } else {
-            visit(I);
-          }
-        }
-      }
-
-      void run_function(llvm::Function *func, llvm::ArrayRef<llvm::GenericValue> ArgValues){
-        const size_t ArgCount = func->getFunctionType()->getNumParams();
-        llvm::ArrayRef<llvm::GenericValue> ActualArgs =
-            ArgValues.slice(0, std::min(ArgValues.size(), ArgCount));
-        llvm::VmillInterpreter::callFunction(func, ActualArgs);
-        run_and_handle();
-      }
-
-      void concrete_execute(llvm::Function *func, llvm::Value **args){
-        std::vector<llvm::GenericValue> argv;
-        const uint64_t arg_count = func->getFunctionType()->getNumParams(); //  should be 3
-        LOG(INFO) << "arg count is " << arg_count << " in concrete_execute function";
-        for (size_t arg_num=0; arg_num<arg_count; ++arg_num){
-          argv.push_back(ConstantToGeneric(
-                      llvm::dyn_cast<llvm::Constant>(args[arg_num])));
-        }
-        run_function(func, argv);
-      }
-     
-  private:
-    Handler handler;
-    std::shared_ptr<llvm::Module> module;
-    std::deque<TaskContinuation> &tasks;
+class ConcreteTask {
+ public:
+  std::vector<llvm::VmillExecutionContext> stack;
 };
 
-Interpreter *Interpreter::Create(llvm::Module *module,
-        std::deque<TaskContinuation> &tasks){
-  return new InterpreterImpl(module, tasks);
+class ConcreteInterpreter : public llvm::VmillInterpreter,
+                            public Interpreter {
+ public:
+  explicit ConcreteInterpreter(llvm::Module *module_,
+                               std::deque<void *> &tasks_)
+      : llvm::VmillInterpreter(std::unique_ptr<llvm::Module>(module_)),
+        Interpreter(),
+        intrinsics(module_),
+        module(module_),
+        tasks(reinterpret_cast<std::deque<ConcreteTask *> &>(tasks_)) {}
+
+  virtual ~ConcreteInterpreter(void) = default;
+
+  bool HandleFunctionCall(llvm::CallInst *call) {
+    llvm::VmillExecutionContext &frame = ECStack.back();
+    llvm::GenericValue called_func = getOperandValue(call->getCalledValue(), frame);
+    auto called_func_ptr = llvm::dyn_cast<llvm::Function>(
+        reinterpret_cast<llvm::Value *>(llvm::GVTOP(called_func)));
+
+    if (!called_func_ptr) {
+      return false;
+    }
+
+    if (intrinsics.read_memory_8 == called_func_ptr) {
+
+    } else if (intrinsics.read_memory_16 == called_func_ptr) {
+
+    } else if (intrinsics.read_memory_32 == called_func_ptr) {
+
+    } else if (intrinsics.read_memory_64 == called_func_ptr) {
+
+    } else if (intrinsics.read_memory_f32 == called_func_ptr) {
+
+    } else if (intrinsics.read_memory_f64 == called_func_ptr) {
+
+    } else if (intrinsics.read_memory_f80 == called_func_ptr) {
+
+    } else if (intrinsics.write_memory_8 == called_func_ptr) {
+
+    } else if (intrinsics.write_memory_16 == called_func_ptr) {
+
+    } else if (intrinsics.write_memory_32 == called_func_ptr) {
+
+    } else if (intrinsics.write_memory_64 == called_func_ptr) {
+
+    } else if (intrinsics.write_memory_f32 == called_func_ptr) {
+
+    } else if (intrinsics.write_memory_f64 == called_func_ptr) {
+
+    } else if (intrinsics.write_memory_f80 == called_func_ptr) {
+
+    } else if (intrinsics.jump == called_func_ptr ||
+               intrinsics.function_call == called_func_ptr ||
+               intrinsics.function_return == called_func_ptr ||
+               intrinsics.missing_block == called_func_ptr) {
+
+      auto state_ptr_val = call->getArgOperand(remill::kStatePointerArgNum);
+      auto pc_val = call->getArgOperand(remill::kPCArgNum);
+      auto mem_ptr_val = call->getArgOperand(remill::kMemoryPointerArgNum);
+
+      auto state = getOperandValue(state_ptr_val, frame);
+      auto mem_ptr = getOperandValue(mem_ptr_val, frame);
+
+      auto pc = getOperandValue(pc_val, frame);
+      auto pc_uint = pc.IntVal.getZExtValue();
+
+    } else if (intrinsics.error == called_func_ptr) {
+      auto pc_val = call->getArgOperand(remill::kPCArgNum);
+      auto pc = getOperandValue(pc_val, frame);
+      LOG(ERROR)
+          << "Execution errored out at "
+          << std::hex << pc.IntVal.getZExtValue() << std::dec;
+
+      // TODO(sae): "exit" the interpreter.
+
+    } else if (intrinsics.async_hyper_call == called_func_ptr) {
+      LOG(FATAL)
+          << "Should be implemented in runtime.";
+
+    } else if (intrinsics.barrier_load_load == called_func_ptr ||
+               intrinsics.barrier_load_store == called_func_ptr ||
+               intrinsics.barrier_store_load == called_func_ptr ||
+               intrinsics.barrier_store_store == called_func_ptr ||
+               intrinsics.atomic_begin == called_func_ptr ||
+               intrinsics.atomic_end == called_func_ptr) {
+
+      // TODO(sae): Return the memory pointer (function argument 1).
+
+    } else if (intrinsics.undefined_8 == called_func_ptr ||
+               intrinsics.undefined_16 == called_func_ptr ||
+               intrinsics.undefined_32 == called_func_ptr ||
+               intrinsics.undefined_64 == called_func_ptr ||
+               intrinsics.undefined_f32 == called_func_ptr ||
+               intrinsics.undefined_f64 == called_func_ptr) {
+
+      // TODO(sae): Return this...
+      (void) llvm::UndefValue::get(called_func_ptr->getReturnType());
+
+    // Not handled by us.
+    } else {
+      return false;
+    }
+
+    return true;
+  }
+
+  void RunInstructions(void) {
+    while (!ECStack.empty()) {
+      llvm::VmillExecutionContext &SF = ECStack.back();
+      llvm::Instruction &I = *SF.CurInst++;
+      if (auto call = llvm::dyn_cast<llvm::CallInst>(&I)) {
+        if (!HandleFunctionCall(call)) {
+          visit(I);
+        }
+      } else {
+        visit(I);
+      }
+    }
+  }
+
+  void Interpret(llvm::Function *func, llvm::Constant **args) override {
+    const size_t num_args = func->getFunctionType()->getNumParams();
+    llvm::SmallVector<llvm::GenericValue, 3> argv(num_args);
+    for (size_t i = 0; i < num_args; ++i) {
+      argv[i] = ConstantToGeneric(args[i]);
+    }
+    llvm::VmillInterpreter::callFunction(func, argv);
+    RunInstructions();
+  }
+
+  void *ConvertContinuationToTask(const TaskContinuation &cont) override {
+
+  }
+
+ private:
+  const remill::IntrinsicTable intrinsics;
+  llvm::Module * const module;
+  std::deque<ConcreteTask *> &tasks;
+};
+
+Interpreter::~Interpreter(void) {}
+
+Interpreter *Interpreter::CreateConcrete(
+    llvm::Module *module, std::deque<TaskContinuation> &tasks) {
+  return new ConcreteInterpreter(module, tasks);
 }
 }  //  namespace vmill

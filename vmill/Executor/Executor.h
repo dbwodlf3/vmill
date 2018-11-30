@@ -40,7 +40,7 @@ class Interpreter;
 
 class TaskContinuation {
  public:
-  llvm::Value *args[remill::kNumBlockArgs];
+  llvm::Constant *args[remill::kNumBlockArgs];
   llvm::Function *continuation;
 };
 
@@ -59,9 +59,9 @@ class Executor {
   llvm::Module *lifted_code;
   TraceManager trace_manager;
   TraceLifter lifter;
-  Interpreter *interpreter;
+  std::unique_ptr<Interpreter> interpreter;
   std::vector<std::shared_ptr<AddressSpace>> memories;
-  std::deque<TaskContinuation> tasks;
+  std::deque<void *> tasks;
 };
 
 }  // namespace vmill

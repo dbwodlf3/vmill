@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "vmill/Executor/TraceManager.h"
 #include "vmill/Executor/Runtime.h"
 #include "vmill/Executor/Executor.h"
@@ -26,49 +28,38 @@
 #include "third_party/klee/Interpreter.h"
 #include "third_party/llvm/Interpreter.h"
 
-
 namespace llvm {
-  class ExecutionEngine;
-  class VmillInterpreter;
-  class Function;
-  class Module;
-  class Value;
-  class VmillExecutionContext;
-} //  namespace llvm
+class ExecutionEngine;
+class VmillInterpreter;
+class CallInst;
+class Function;
+class Module;
+class Value;
+class VmillExecutionContext;
+}  //  namespace llvm
 
 namespace klee {
-  class Interpreter;
-  class InterpreterOptions;
-  class InterpreterHandler;
-  class ExecutionState;
-} //  namespace klee
+class Interpreter;
+class InterpreterOptions;
+class InterpreterHandler;
+class ExecutionState;
+}  //  namespace klee
 
 namespace vmill {
 
-class Interpreter{
-  public:
-    static  Interpreter *Create(llvm::Module *module, 
-            std::deque<TaskContinuation> &tasks);
-    virtual void symbolic_execute(llvm::Function *func, 
-            llvm::Value **args) = 0;
-    virtual void concrete_execute(llvm::Function *func, 
-            llvm::Value **args) = 0;
-    ~Interpreter(void) = default;
-  protected:
-    Interpreter(void) = default;
-};
+class Interpreter {
+ public:
+  virtual ~Interpreter(void);
 
-class Handler {
-  /*  utility class that will handle calls to the vmill runtime
-   *  must be extended to create tasks with the PC, STATE, and MEMORY ARGS
-   *  in the current program state */
-  public:
-    Handler(void) = default;
-    ~Handler(void) = default;
-    bool handle(
-       llvm::Instruction *instr,
-       llvm::Function *func, 
-       std::deque<TaskContinuation> &tasks);
+  static Interpreter *CreateConcrete(
+      llvm::Module *module, std::deque<void *> &tasks);
+
+  virtual void Interpret(llvm::Function *func, llvm::Constant **args) = 0;
+
+  virtual void *ConvertContinuationToTask(const TaskContinuation &cont) = 0;
+
+ protected:
+  Interpreter(void) = default;
 };
 
 }  //  namespace vmill
