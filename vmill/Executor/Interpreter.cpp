@@ -35,6 +35,13 @@
 
 #include "remill/BC/ABI.h"
 #include "remill/BC/IntrinsicTable.h"
+#include "remill/Arch/Name.h"
+
+#include "remill/Arch/Instruction.h"
+
+#include "remill/BC/Util.h"
+#include "remill/BC/Optimizer.h"
+#include "remill/OS/OS.h"
 
 namespace vmill {
 
@@ -50,8 +57,9 @@ class ConcreteInterpreter : public llvm::VmillInterpreter,
                                std::deque<void *> &tasks_)
       : llvm::VmillInterpreter(std::unique_ptr<llvm::Module>(module_)),
         Interpreter(),
-        intrinsics(module_),
-        module(module_),
+ 		context(module_->getContext()),
+		semantics_module(remill::LoadTargetSemantics(&context)),
+        intrinsics(semantics_module),
         tasks(reinterpret_cast<std::deque<ConcreteTask *> &>(tasks_)) {}
 
   virtual ~ConcreteInterpreter(void) = default;
@@ -59,12 +67,16 @@ class ConcreteInterpreter : public llvm::VmillInterpreter,
   bool HandleFunctionCall(llvm::CallInst *call) {
     llvm::VmillExecutionContext &frame = ECStack.back();
     llvm::GenericValue called_func = getOperandValue(call->getCalledValue(), frame);
-    auto called_func_ptr = llvm::dyn_cast<llvm::Function>(
-        reinterpret_cast<llvm::Value *>(llvm::GVTOP(called_func)));
+    llvm::Function * const called_func_ptr = llvm::dyn_cast<llvm::Function>(reinterpret_cast<llvm::Value *>(llvm::GVTOP(called_func)));
+
+	CHECK_EQ(called_func_ptr->getParent(), 
+		intrinsics.read_memory_8->getParent());
 
     if (!called_func_ptr) {
       return false;
     }
+    
+    llvm::dbgs() << "func name is" << called_func_ptr -> getName() <<'\n';
 
     if (intrinsics.read_memory_8 == called_func_ptr) {
 
@@ -116,7 +128,7 @@ class ConcreteInterpreter : public llvm::VmillInterpreter,
           << "Execution errored out at "
           << std::hex << pc.IntVal.getZExtValue() << std::dec;
 
-      // TODO(sae): "exit" the interpreter.
+      // TODO(sai): "exit" the interpreter.
 
     } else if (intrinsics.async_hyper_call == called_func_ptr) {
       LOG(FATAL)
@@ -129,7 +141,7 @@ class ConcreteInterpreter : public llvm::VmillInterpreter,
                intrinsics.atomic_begin == called_func_ptr ||
                intrinsics.atomic_end == called_func_ptr) {
 
-      // TODO(sae): Return the memory pointer (function argument 1).
+      // TODO(sai): Return the memory pointer (function argument 1).
 
     } else if (intrinsics.undefined_8 == called_func_ptr ||
                intrinsics.undefined_16 == called_func_ptr ||
@@ -138,9 +150,8 @@ class ConcreteInterpreter : public llvm::VmillInterpreter,
                intrinsics.undefined_f32 == called_func_ptr ||
                intrinsics.undefined_f64 == called_func_ptr) {
 
-      // TODO(sae): Return this...
+      // TODO(sai): Return this...
       (void) llvm::UndefValue::get(called_func_ptr->getReturnType());
-
     // Not handled by us.
     } else {
       return false;
@@ -155,38 +166,58 @@ class ConcreteInterpreter : public llvm::VmillInterpreter,
       llvm::Instruction &I = *SF.CurInst++;
       if (auto call = llvm::dyn_cast<llvm::CallInst>(&I)) {
         if (!HandleFunctionCall(call)) {
+          llvm::dbgs() << "Fuction Handler" << '\n';
           visit(I);
         }
       } else {
+        llvm::dbgs() << I << '\n';      
         visit(I);
       }
     }
   }
 
   void Interpret(llvm::Function *func, llvm::Constant **args) override {
-    const size_t num_args = func->getFunctionType()->getNumParams();
-    llvm::SmallVector<llvm::GenericValue, 3> argv(num_args);
-    for (size_t i = 0; i < num_args; ++i) {
-      argv[i] = ConstantToGeneric(args[i]);
-    }
-    llvm::VmillInterpreter::callFunction(func, argv);
-    RunInstructions();
+	std::vector<llvm::GenericValue> argv;
+	const uint64_t arg_count = func->getFunctionType()->getNumParams();
+	for (size_t arg_num=0; arg_num<arg_count; ++arg_num){
+	  argv.push_back(ConstantToGeneric(args[arg_num]));
+	}
+	llvm::VmillInterpreter::callFunction(func, argv);
+	RunInstructions();
   }
 
   void *ConvertContinuationToTask(const TaskContinuation &cont) override {
+    auto frame = new llvm::VmillExecutionContext();
+    frame->CurFunction = cont.continuation;
+    frame->CurBB = &*(frame->CurFunction -> begin());
+    frame->CurInst = frame->CurBB -> begin();
 
+    for(size_t i=0; i<3; ++i){
+     frame->Values[cont.args[i]] = ConstantToGeneric(cont.args[i]); 
+     frame->arg_consts[i] = cont.args[i];
+    }
+    return reinterpret_cast<void *>(frame);
+  }
+
+  std::pair<llvm::Function*, llvm::Constant **>
+	GetFuncFromTaskContinuation(void *cont) override {
+    auto frame = reinterpret_cast<llvm::VmillExecutionContext *>(cont);
+    return std::pair<llvm::Function *,llvm::Constant **>
+			(frame->CurFunction,frame->arg_consts);
   }
 
  private:
-  const remill::IntrinsicTable intrinsics;
-  llvm::Module * const module;
+  llvm::LLVMContext &context;
+  std::unique_ptr<llvm::Module> semantics_module;
+  const remill::IntrinsicTable &intrinsics;
   std::deque<ConcreteTask *> &tasks;
 };
 
 Interpreter::~Interpreter(void) {}
 
 Interpreter *Interpreter::CreateConcrete(
-    llvm::Module *module, std::deque<TaskContinuation> &tasks) {
+    llvm::Module *module, std::deque<void *> &tasks) {
   return new ConcreteInterpreter(module, tasks);
 }
+
 }  //  namespace vmill

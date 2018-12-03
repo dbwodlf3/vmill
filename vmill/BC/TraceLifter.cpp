@@ -65,7 +65,7 @@ llvm::Function *TraceLifter::GetLiftedFunction(
     return func;
   }
 
-  // TODO(sae): Eventually remove this in favor of "importing" all lifted
+  // TODO(sai): Eventually remove this in favor of "importing" all lifted
   //            traces already in `lifted_traces`.
   const auto trace_name = trace_manager.TraceName(addr);
   func = traces_module.getFunction(trace_name);
@@ -91,7 +91,7 @@ llvm::Function *TraceLifter::Lift(AddressSpace *memory, uint64_t addr) {
       });
   trace_manager.memory = nullptr;
 
-  //assumes remill::TraceLifter has all protected fields and no private fields
+  //  assumes remill::TraceLifter has all protected fields and no private fields
   remill::OptimizationGuide guide = {};
   guide.slp_vectorize = false;
   guide.loop_vectorize = false;
@@ -106,7 +106,8 @@ llvm::Function *TraceLifter::Lift(AddressSpace *memory, uint64_t addr) {
   for (auto lifted_entry : new_lifted_traces) {
     remill::MoveFunctionIntoModule(lifted_entry.second, &traces_module);
   }
-
+  LOG(INFO) 
+      << "YAAAY I GOT HERE";
   return new_lifted_traces[addr];
 }
 

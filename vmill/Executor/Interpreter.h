@@ -17,6 +17,7 @@
 #pragma once
 
 #include <memory>
+#include <tuple>
 
 #include "vmill/Executor/TraceManager.h"
 #include "vmill/Executor/Runtime.h"
@@ -54,10 +55,13 @@ class Interpreter {
   static Interpreter *CreateConcrete(
       llvm::Module *module, std::deque<void *> &tasks);
 
-  virtual void Interpret(llvm::Function *func, llvm::Constant **args) = 0;
+  virtual void Interpret(llvm::Function *func, llvm::Constant **argv) = 0;
 
   virtual void *ConvertContinuationToTask(const TaskContinuation &cont) = 0;
 
+  virtual std::pair<llvm::Function *,llvm::Constant **>
+		GetFuncFromTaskContinuation(void *cont) = 0;
+  
  protected:
   Interpreter(void) = default;
 };

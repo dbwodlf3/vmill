@@ -62,6 +62,7 @@ class Executor {
   std::unique_ptr<Interpreter> interpreter;
   std::vector<std::shared_ptr<AddressSpace>> memories;
   std::deque<void *> tasks;
+  std::vector<TaskContinuation> task_information;
 };
 
 }  // namespace vmill

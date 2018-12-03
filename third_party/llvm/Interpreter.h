@@ -64,6 +64,7 @@ struct VmillExecutionContext {
   Function *CurFunction;  // The currently executing function
   BasicBlock *CurBB;      // The currently executing BB
   BasicBlock::iterator CurInst;    // The next instruction to execute
+  Constant *arg_consts[3];
   CallSite Caller;     // Holds the call that called subframes.
                        // NULL if main func or debugger invoked fn
   std::map<Value *, GenericValue> Values;  // LLVM values used in this invocation
@@ -73,8 +74,7 @@ struct VmillExecutionContext {
   VmillExecutionContext()
       : CurFunction(nullptr),
         CurBB(nullptr),
-        CurInst(nullptr) {
-  }
+        CurInst(nullptr){}
 };
 
 // Interpreter - This class represents the entirety of the interpreter.

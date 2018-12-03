@@ -90,13 +90,14 @@ void Executor::Run(void) {
   while (!tasks.empty()) {
     auto cont = tasks.front();
     tasks.pop_front();
+    auto func_pair = interpreter -> GetFuncFromTaskContinuation(cont);
 
-    interpreter->Interpret(cont.continuation, cont.args);
+    interpreter->Interpret(func_pair.first, func_pair.second);
 
     LOG(INFO)
-        << "Interpreting " << cont.continuation->getName().str();
+        << "Interpreting " << func_pair.first->getName().str();
 
-    cont.continuation->dump();
+    func_pair.first->dump();
   }
   TearDown();
 }
@@ -203,7 +204,9 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
   cont.args[remill::kStatePointerArgNum] = llvm::ConstantExpr::getBitCast(
         task_var, state_ptr_type);
 
+  LOG(INFO) << "BEFORE INTERPRETER CONVERSION";
   tasks.push_back(interpreter->ConvertContinuationToTask(cont));
+  LOG(INFO) << "GOT THROUGH INITIAL TASK";
 }
 
 }  //namespace vmill
