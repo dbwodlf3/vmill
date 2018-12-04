@@ -29,6 +29,10 @@
 #include "third_party/klee/Interpreter.h"
 #include "third_party/llvm/Interpreter.h"
 
+namespace remill {
+class IntrinsicTable;
+}
+
 namespace llvm {
 class ExecutionEngine;
 class VmillInterpreter;
@@ -53,7 +57,8 @@ class Interpreter {
   virtual ~Interpreter(void);
 
   static Interpreter *CreateConcrete(
-      llvm::Module *module, std::deque<void *> &tasks);
+      llvm::Module *module, std::deque<void *> &tasks, 
+      const remill::IntrinsicTable& intrinsics);
 
   virtual void Interpret(llvm::Function *func, llvm::Constant **argv) = 0;
 

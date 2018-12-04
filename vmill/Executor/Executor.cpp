@@ -58,7 +58,7 @@ Executor::Executor(void)
       lifted_code(LoadRuntimeBitcode(context.get())),
       trace_manager(*lifted_code),
       lifter(*lifted_code, trace_manager),
-      interpreter(Interpreter::CreateConcrete(lifted_code,tasks)){}
+      interpreter(Interpreter::CreateConcrete(lifted_code,tasks, lifter.GetIntrinsics())){}
  
 void Executor::SetUp(void) {}
 

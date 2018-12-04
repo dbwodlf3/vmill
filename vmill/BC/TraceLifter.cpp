@@ -57,6 +57,11 @@ TraceLifter::TraceLifter(llvm::Module &lifted_traces_,
       inst_lifter(remill::GetTargetArch(), intrinsics),
       trace_lifter_impl(inst_lifter, trace_manager) {}
 
+
+const remill::IntrinsicTable &TraceLifter::GetIntrinsics(void){
+  return intrinsics;
+}
+
 llvm::Function *TraceLifter::GetLiftedFunction(
     AddressSpace *memory, uint64_t addr) {
   auto func = trace_manager.GetLiftedTraceDefinition(addr);
@@ -106,8 +111,6 @@ llvm::Function *TraceLifter::Lift(AddressSpace *memory, uint64_t addr) {
   for (auto lifted_entry : new_lifted_traces) {
     remill::MoveFunctionIntoModule(lifted_entry.second, &traces_module);
   }
-  LOG(INFO) 
-      << "YAAAY I GOT HERE";
   return new_lifted_traces[addr];
 }
 

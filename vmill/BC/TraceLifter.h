@@ -39,6 +39,8 @@ class TraceLifter {
 
   llvm::Function *GetLiftedFunction(AddressSpace *memory, uint64_t addr);
 
+  const remill::IntrinsicTable &GetIntrinsics(void);
+
  private:
   TraceLifter(void) = delete;
 

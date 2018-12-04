@@ -65,7 +65,7 @@ add_subdirectory(vmill/Runtime)
 
 add_library(${PROJECT_NAME} STATIC
     ${PROJECT_PROTOBUFSOURCEFILES}
-    
+
     vmill/BC/TraceLifter.cpp
 
     vmill/Workspace/Workspace.cpp
@@ -73,6 +73,7 @@ add_library(${PROJECT_NAME} STATIC
     vmill/Executor/Executor.cpp
     vmill/Executor/TraceManager.cpp
     vmill/Executor/Interpreter.cpp
+    vmill/Executor/Runtime.cpp
     
     vmill/Program/AddressSpace.cpp
     vmill/Program/MappedRange.cpp

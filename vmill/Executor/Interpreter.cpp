@@ -43,6 +43,7 @@
 #include "remill/BC/Optimizer.h"
 #include "remill/OS/OS.h"
 
+
 namespace vmill {
 
 class ConcreteTask {
@@ -54,12 +55,11 @@ class ConcreteInterpreter : public llvm::VmillInterpreter,
                             public Interpreter {
  public:
   explicit ConcreteInterpreter(llvm::Module *module_,
-                               std::deque<void *> &tasks_)
+                               std::deque<void *> &tasks_,
+                               const remill::IntrinsicTable &intrinsic_table)
       : llvm::VmillInterpreter(std::unique_ptr<llvm::Module>(module_)),
         Interpreter(),
- 		context(module_->getContext()),
-		semantics_module(remill::LoadTargetSemantics(&context)),
-        intrinsics(semantics_module),
+        intrinsics(intrinsic_table),
         tasks(reinterpret_cast<std::deque<ConcreteTask *> &>(tasks_)) {}
 
   virtual ~ConcreteInterpreter(void) = default;
@@ -67,10 +67,10 @@ class ConcreteInterpreter : public llvm::VmillInterpreter,
   bool HandleFunctionCall(llvm::CallInst *call) {
     llvm::VmillExecutionContext &frame = ECStack.back();
     llvm::GenericValue called_func = getOperandValue(call->getCalledValue(), frame);
-    llvm::Function * const called_func_ptr = llvm::dyn_cast<llvm::Function>(reinterpret_cast<llvm::Value *>(llvm::GVTOP(called_func)));
+    llvm::Function * const called_func_ptr = 
+        llvm::dyn_cast<llvm::Function>(reinterpret_cast<llvm::Value *>(llvm::GVTOP(called_func)));
 
-	CHECK_EQ(called_func_ptr->getParent(), 
-		intrinsics.read_memory_8->getParent());
+	//CHECK_EQ( &mod ,(called_func_ptr->getParent()));
 
     if (!called_func_ptr) {
       return false;
@@ -207,8 +207,6 @@ class ConcreteInterpreter : public llvm::VmillInterpreter,
   }
 
  private:
-  llvm::LLVMContext &context;
-  std::unique_ptr<llvm::Module> semantics_module;
   const remill::IntrinsicTable &intrinsics;
   std::deque<ConcreteTask *> &tasks;
 };
@@ -216,8 +214,9 @@ class ConcreteInterpreter : public llvm::VmillInterpreter,
 Interpreter::~Interpreter(void) {}
 
 Interpreter *Interpreter::CreateConcrete(
-    llvm::Module *module, std::deque<void *> &tasks) {
-  return new ConcreteInterpreter(module, tasks);
+    llvm::Module *module, std::deque<void *> &tasks, 
+    const remill::IntrinsicTable& intrinsic) {
+  return new ConcreteInterpreter(module, tasks, intrinsic);
 }
 
 }  //  namespace vmill
