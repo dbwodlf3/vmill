@@ -279,7 +279,7 @@
  }
  
  void VmillInterpreter::visitICmpInst(ICmpInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    Type *Ty    = I.getOperand(0)->getType();
    GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
    GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
@@ -611,7 +611,7 @@
  }
  
  void VmillInterpreter::visitFCmpInst(FCmpInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    Type *Ty    = I.getOperand(0)->getType();
    GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
    GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
@@ -682,7 +682,7 @@
  }
  
  void VmillInterpreter::visitBinaryOperator(BinaryOperator &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    Type *Ty    = I.getOperand(0)->getType();
    GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
    GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
@@ -807,7 +807,7 @@
  }
  
  void VmillInterpreter::visitSelectInst(SelectInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    Type * Ty = I.getOperand(0)->getType();
    GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
    GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
@@ -824,7 +824,7 @@
    // runAtExitHandlers() assumes there are no stack frames, but
    // if exit() was called, then it had a stack frame. Blow away
    // the stack before interpreting atexit handlers.
-   ECStack.clear();
+   ECStack->clear();
    runAtExitHandlers();
    exit(GV.IntVal.zextOrTrunc(32).getZExtValue());
  }
@@ -840,9 +840,9 @@
  void VmillInterpreter::popStackAndReturnValueToCaller(Type *RetTy,
                                                   GenericValue Result) {
    // Pop the current stack frame.
-   ECStack.pop_back();
+   ECStack->pop_back();
  
-   if (ECStack.empty()) {  // Finished main.  Put result into exit code...
+   if (ECStack->empty()) {  // Finished main.  Put result into exit code...
      if (RetTy && !RetTy->isVoidTy()) {          // Nonvoid return type?
        ExitValue = Result;   // Capture the exit value of the program
      } else {
@@ -851,7 +851,7 @@
    } else {
      // If we have a previous stack frame, and we have a previous call,
      // fill in the return value...
-     VmillExecutionContext &CallingSF = ECStack.back();
+     VmillExecutionContext &CallingSF = ECStack->back();
      if (Instruction *I = CallingSF.Caller.getInstruction()) {
        // Save result...
        if (!CallingSF.Caller.getType()->isVoidTy())
@@ -864,7 +864,7 @@
  }
  
  void VmillInterpreter::visitReturnInst(ReturnInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    Type *RetTy = Type::getVoidTy(I.getContext());
    GenericValue Result;
  
@@ -882,7 +882,7 @@
  }
  
  void VmillInterpreter::visitBranchInst(BranchInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    BasicBlock *Dest;
  
    Dest = I.getSuccessor(0);          // Uncond branches have a fixed dest...
@@ -901,7 +901,7 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
 /******************************************/
 
  void VmillInterpreter::visitSwitchInst(SwitchInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    Value* Cond = I.getCondition();
    Type *ElTy = Cond->getType();
    GenericValue CondVal = getOperandValue(Cond, SF);
@@ -920,7 +920,7 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  }
  
  void VmillInterpreter::visitIndirectBrInst(IndirectBrInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    void *Dest = GVTOP(getOperandValue(I.getAddress(), SF));
    SwitchToNewBasicBlock((BasicBlock*)Dest, SF);
  }
@@ -969,7 +969,7 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  //===----------------------------------------------------------------------===//
  
  void VmillInterpreter::visitAllocaInst(AllocaInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
  
    Type *Ty = I.getType()->getElementType();  // Type to be allocated
  
@@ -994,7 +994,7 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
    SetValue(&I, Result, SF);
  
    if (I.getOpcode() == Instruction::Alloca)
-     ECStack.back().Allocas.add(Memory);
+     ECStack->back().Allocas.add(Memory);
  }
  
  // getElementOffset - The workhorse for getelementptr.
@@ -1039,13 +1039,13 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  }
  
  void VmillInterpreter::visitGetElementPtrInst(GetElementPtrInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    SetValue(&I, executeGEPOperation(I.getPointerOperand(),
                                     gep_type_begin(I), gep_type_end(I), SF), SF);
  }
  
  void VmillInterpreter::visitLoadInst(LoadInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    GenericValue SRC = getOperandValue(I.getPointerOperand(), SF);
    GenericValue *Ptr = (GenericValue*)GVTOP(SRC);
    GenericValue Result;
@@ -1056,7 +1056,7 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  }
  
  void VmillInterpreter::visitStoreInst(StoreInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    GenericValue Val = getOperandValue(I.getOperand(0), SF);
    GenericValue SRC = getOperandValue(I.getPointerOperand(), SF);
    StoreValueToMemory(Val, (GenericValue *)GVTOP(SRC),
@@ -1070,7 +1070,7 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  //===----------------------------------------------------------------------===//
  
  void VmillInterpreter::visitCallSite(CallSite CS) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
  
    // Check to see if this is an intrinsic function call...
    Function *F = CS.getCalledFunction();
@@ -1080,7 +1080,7 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
        break;
      case Intrinsic::vastart: { // va_start
        GenericValue ArgIndex;
-       ArgIndex.UIntPairVal.first = ECStack.size() - 1;
+       ArgIndex.UIntPairVal.first = ECStack->size() - 1;
        ArgIndex.UIntPairVal.second = 0;
        SetValue(CS.getInstruction(), ArgIndex, SF);
        return;
@@ -1143,7 +1143,7 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  
  
  void VmillInterpreter::visitShl(BinaryOperator &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
    GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
    GenericValue Dest;
@@ -1170,7 +1170,7 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  }
  
  void VmillInterpreter::visitLShr(BinaryOperator &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
    GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
    GenericValue Dest;
@@ -1197,7 +1197,7 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  }
  
  void VmillInterpreter::visitAShr(BinaryOperator &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
    GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
    GenericValue Dest;
@@ -1661,62 +1661,62 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  }
  
  void VmillInterpreter::visitTruncInst(TruncInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    SetValue(&I, executeTruncInst(I.getOperand(0), I.getType(), SF), SF);
  }
  
  void VmillInterpreter::visitSExtInst(SExtInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    SetValue(&I, executeSExtInst(I.getOperand(0), I.getType(), SF), SF);
  }
  
  void VmillInterpreter::visitZExtInst(ZExtInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    SetValue(&I, executeZExtInst(I.getOperand(0), I.getType(), SF), SF);
  }
  
  void VmillInterpreter::visitFPTruncInst(FPTruncInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    SetValue(&I, executeFPTruncInst(I.getOperand(0), I.getType(), SF), SF);
  }
  
  void VmillInterpreter::visitFPExtInst(FPExtInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    SetValue(&I, executeFPExtInst(I.getOperand(0), I.getType(), SF), SF);
  }
  
  void VmillInterpreter::visitUIToFPInst(UIToFPInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    SetValue(&I, executeUIToFPInst(I.getOperand(0), I.getType(), SF), SF);
  }
  
  void VmillInterpreter::visitSIToFPInst(SIToFPInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    SetValue(&I, executeSIToFPInst(I.getOperand(0), I.getType(), SF), SF);
  }
  
  void VmillInterpreter::visitFPToUIInst(FPToUIInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    SetValue(&I, executeFPToUIInst(I.getOperand(0), I.getType(), SF), SF);
  }
  
  void VmillInterpreter::visitFPToSIInst(FPToSIInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    SetValue(&I, executeFPToSIInst(I.getOperand(0), I.getType(), SF), SF);
  }
  
  void VmillInterpreter::visitPtrToIntInst(PtrToIntInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    SetValue(&I, executePtrToIntInst(I.getOperand(0), I.getType(), SF), SF);
  }
  
  void VmillInterpreter::visitIntToPtrInst(IntToPtrInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    SetValue(&I, executeIntToPtrInst(I.getOperand(0), I.getType(), SF), SF);
  }
  
  void VmillInterpreter::visitBitCastInst(BitCastInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    SetValue(&I, executeBitCastInst(I.getOperand(0), I.getType(), SF), SF);
  }
  
@@ -1724,13 +1724,13 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
     case Type::TY##TyID: Dest.TY##Val = Src.TY##Val; break
  
  void VmillInterpreter::visitVAArgInst(VAArgInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
  
    // Get the incoming valist parameter.  LLI treats the valist as a
    // (ec-stack-depth var-arg-index) pair.
    GenericValue VAList = getOperandValue(I.getOperand(0), SF);
    GenericValue Dest;
-   GenericValue Src = ECStack[VAList.UIntPairVal.first]
+   GenericValue Src = ECStack->at(VAList.UIntPairVal.first)
                        .VarArgs[VAList.UIntPairVal.second];
    Type *Ty = I.getType();
    switch (Ty->getTypeID()) {
@@ -1753,7 +1753,7 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  }
  
  void VmillInterpreter::visitExtractElementInst(ExtractElementInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    GenericValue Src1 = getOperandValue(I.getOperand(0), SF);
    GenericValue Src2 = getOperandValue(I.getOperand(1), SF);
    GenericValue Dest;
@@ -1786,7 +1786,7 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  }
  
  void VmillInterpreter::visitInsertElementInst(InsertElementInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    Type *Ty = I.getType();
  
    if(!(Ty->isVectorTy()) )
@@ -1821,7 +1821,7 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  }
  
  void VmillInterpreter::visitShuffleVectorInst(ShuffleVectorInst &I){
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
  
    Type *Ty = I.getType();
    if(!(Ty->isVectorTy()))
@@ -1891,7 +1891,7 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  }
  
  void VmillInterpreter::visitExtractValueInst(ExtractValueInst &I) {
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    Value *Agg = I.getAggregateOperand();
    GenericValue Dest;
    GenericValue Src = getOperandValue(Agg, SF);
@@ -1934,7 +1934,7 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  
  void VmillInterpreter::visitInsertValueInst(InsertValueInst &I) {
  
-   VmillExecutionContext &SF = ECStack.back();
+   VmillExecutionContext &SF = ECStack->back();
    Value *Agg = I.getAggregateOperand();
  
    GenericValue Src1 = getOperandValue(Agg, SF);
@@ -2082,12 +2082,12 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  // callFunction - Execute the specified function...
  //
  void VmillInterpreter::callFunction(Function *F, ArrayRef<GenericValue> ArgVals) {
-   assert((ECStack.empty() || !ECStack.back().Caller.getInstruction() ||
-           ECStack.back().Caller.arg_size() == ArgVals.size()) &&
+   assert((ECStack->empty() || !ECStack->back().Caller.getInstruction() ||
+           ECStack->back().Caller.arg_size() == ArgVals.size()) &&
           "Incorrect number of arguments passed into function call!");
    // Make a new stack frame... and fill it in.
-   ECStack.emplace_back();
-   VmillExecutionContext &StackFrame = ECStack.back();
+   ECStack->emplace_back();
+   VmillExecutionContext &StackFrame = ECStack->back();
    StackFrame.CurFunction = F;
  
    // Special handling for external functions.
@@ -2119,9 +2119,9 @@ GenericValue VmillInterpreter::ConstantToGeneric(const Constant *C){
  
  
  void VmillInterpreter::run() {
-   while (!ECStack.empty()) {
+   while (!ECStack->empty()) {
      // Interpret a single instruction & increment the "PC".
-     VmillExecutionContext &SF = ECStack.back();  // Current stack frame
+     VmillExecutionContext &SF = ECStack->back();  // Current stack frame
      Instruction &I = *SF.CurInst++;         // Increment before execute
  
      // Track the number of dynamic instructions executed.

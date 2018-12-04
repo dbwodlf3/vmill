@@ -78,6 +78,8 @@ struct Task {
 
   uint8_t opaque_state[sizeof(State)];
 
+  uint64_t time_stamp_counter;
+
   inline struct State *State(void) {
     return reinterpret_cast<struct State *>(&(opaque_state[0]));
   }

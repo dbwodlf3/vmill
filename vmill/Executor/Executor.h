@@ -44,6 +44,8 @@ class TaskContinuation {
   llvm::Function *continuation;
 };
 
+class Interpreter;
+
 class Executor {
  public:
   Executor(void);
@@ -53,6 +55,12 @@ class Executor {
   void Run(void);
   void AddInitialTask(const std::string &state, const uint64_t pc,
                       std::shared_ptr<AddressSpace> memory);
+
+  AddressSpace *Memory(uintptr_t index);
+  llvm::Function *GetLiftedFunction(AddressSpace *memory, uint64_t addr);
+
+  void *NextTask(void);
+  void AddTask(void *task);
 
  private:
   std::shared_ptr<llvm::LLVMContext> context;

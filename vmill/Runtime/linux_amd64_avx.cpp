@@ -30,6 +30,7 @@
 #include <cfloat>
 #include <cinttypes>
 #include <climits>
+#include <cmath>
 #include <cstdlib>
 #include <cstdint>
 #include <cstdio>
@@ -39,7 +40,9 @@
 #pragma clang diagnostic ignored "-Wgnu-alignof-expression"
 
 #include "remill/Arch/Runtime/Intrinsics.h"
+#include "remill/Arch/Runtime/Intrinsics.cpp"
 #include "remill/Arch/X86/Runtime/State.h"
 #include "vmill/Runtime/Task.cpp"
+#include "vmill/Runtime/X86.cpp"
 
 #pragma clang diagnostic pop

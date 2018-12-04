@@ -58,7 +58,7 @@ Executor::Executor(void)
       lifted_code(LoadRuntimeBitcode(context.get())),
       trace_manager(*lifted_code),
       lifter(*lifted_code, trace_manager),
-      interpreter(Interpreter::CreateConcrete(lifted_code,tasks, lifter.GetIntrinsics())){}
+      interpreter(Interpreter::CreateConcrete(lifted_code, this)) {}
  
 void Executor::SetUp(void) {}
 
@@ -87,17 +87,8 @@ Executor::~Executor(void) {
 
 void Executor::Run(void) {
   SetUp();
-  while (!tasks.empty()) {
-    auto cont = tasks.front();
-    tasks.pop_front();
-    auto func_pair = interpreter -> GetFuncFromTaskContinuation(cont);
-
-    interpreter->Interpret(func_pair.first, func_pair.second);
-
-    LOG(INFO)
-        << "Interpreting " << func_pair.first->getName().str();
-
-    func_pair.first->dump();
+  while (auto task = NextTask()) {
+    interpreter->Interpret(task);
   }
   TearDown();
 }
@@ -202,11 +193,32 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
   cont.args[remill::kMemoryPointerArgNum] = llvm::ConstantExpr::getIntToPtr(
       llvm::ConstantInt::get(pc_type, task_num), mem_ptr_type);
   cont.args[remill::kStatePointerArgNum] = llvm::ConstantExpr::getBitCast(
-        task_var, state_ptr_type);
+      task_var, state_ptr_type);
 
-  LOG(INFO) << "BEFORE INTERPRETER CONVERSION";
-  tasks.push_back(interpreter->ConvertContinuationToTask(cont));
-  LOG(INFO) << "GOT THROUGH INITIAL TASK";
+  AddTask(interpreter->ConvertContinuationToTask(cont));
+}
+
+AddressSpace *Executor::Memory(uintptr_t index) {
+  return memories[index].get();
+}
+
+llvm::Function *Executor::GetLiftedFunction(
+    AddressSpace *memory, uint64_t addr) {
+  return lifter.GetLiftedFunction(memory, addr);
+}
+
+void *Executor::NextTask(void) {
+  if (tasks.empty()) {
+    return nullptr;
+  } else {
+    auto task = tasks.front();
+    tasks.pop_front();
+    return task;
+  }
+}
+
+void Executor::AddTask(void *task) {
+  tasks.push_back(task);
 }
 
 }  //namespace vmill

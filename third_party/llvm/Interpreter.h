@@ -88,7 +88,8 @@ class VmillInterpreter : public ExecutionEngine, public InstVisitor<
 
   // The runtime stack of executing code.  The top of the stack is the current
   // function record.
-  std::vector<VmillExecutionContext> ECStack;
+  std::vector<VmillExecutionContext> MainStack;
+  std::vector<VmillExecutionContext> *ECStack;
 
   // AtExitHandlers - List of functions to call when the program exits,
   // registered with the atexit() library function.
@@ -197,7 +198,7 @@ class VmillInterpreter : public ExecutionEngine, public InstVisitor<
   }
 
   GenericValue *getFirstVarArg() {
-    return &(ECStack.back().VarArgs[0]);
+    return &(ECStack->back().VarArgs[0]);
   }
 
  private:

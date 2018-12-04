@@ -53,8 +53,9 @@
  // Interpreter ctor - Initialize stuff
  //
  VmillInterpreter::VmillInterpreter(std::unique_ptr<Module> M)
-     : ExecutionEngine(std::move(M)) {
- 
+     : ExecutionEngine(std::move(M)),
+       ECStack(&MainStack) {
+
    memset(&ExitValue.Untyped, 0, sizeof(ExitValue.Untyped));
    // Initialize the "backend"
    initializeExecutionEngine();

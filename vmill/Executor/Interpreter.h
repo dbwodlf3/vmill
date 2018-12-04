@@ -52,21 +52,18 @@ class ExecutionState;
 
 namespace vmill {
 
+class Executor;
+
 class Interpreter {
  public:
   virtual ~Interpreter(void);
 
-  static Interpreter *CreateConcrete(
-      llvm::Module *module, std::deque<void *> &tasks, 
-      const remill::IntrinsicTable& intrinsics);
+  static Interpreter *CreateConcrete(llvm::Module *module, Executor *exe);
 
-  virtual void Interpret(llvm::Function *func, llvm::Constant **argv) = 0;
+  virtual void Interpret(void *) = 0;
 
   virtual void *ConvertContinuationToTask(const TaskContinuation &cont) = 0;
 
-  virtual std::pair<llvm::Function *,llvm::Constant **>
-		GetFuncFromTaskContinuation(void *cont) = 0;
-  
  protected:
   Interpreter(void) = default;
 };
