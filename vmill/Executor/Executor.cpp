@@ -93,6 +93,90 @@ void Executor::Run(void) {
   TearDown();
 }
 
+template <typename T>
+struct alignas(T) BufferOf {
+ public:
+  uint8_t bytes[sizeof(T)];
+};
+
+static llvm::Constant *FillTypeFromBytes(const llvm::DataLayout &dl,
+                                         llvm::Type *type, const uint8_t *bytes,
+                                         size_t offset) {
+  const size_t size = dl.getTypeAllocSize(type);
+
+  if (auto st = llvm::dyn_cast<llvm::StructType>(type)) {
+    std::vector<llvm::Constant *> elems;
+    for (auto et : st->elements()) {
+      auto et_size = dl.getTypeAllocSize(et);
+      elems.push_back(FillTypeFromBytes(dl, et, bytes, offset));
+      offset += et_size;
+    }
+    return llvm::ConstantStruct::get(st, elems);
+
+  } else if (auto at = llvm::dyn_cast<llvm::ArrayType>(type)) {
+    auto et = at->getArrayElementType();
+    auto et_size = dl.getTypeAllocSize(et);
+    auto num_elems = at->getNumElements();
+    std::vector<llvm::Constant *> elems;
+    for (auto i = 0ULL; i < num_elems; ++i) {
+      elems.push_back(FillTypeFromBytes(dl, et, bytes, offset));
+      offset += et_size;
+    }
+    return llvm::ConstantArray::get(at, elems);
+
+  } else if (type->isIntegerTy()) {
+    if (16 == size) {
+      uint64_t storage[2];
+      llvm::APInt val(storage, 128);
+
+    } else if (8 == size) {
+      BufferOf<uint64_t> buff;
+      memcpy(&(buff.bytes[0]), &(bytes[offset]), sizeof(buff));
+      return llvm::ConstantInt::get(
+          type, *reinterpret_cast<uint64_t *>(buff.bytes));
+
+    } else if (4 == size) {
+      BufferOf<uint32_t> buff;
+      memcpy(&(buff.bytes[0]), &(bytes[offset]), sizeof(buff));
+      return llvm::ConstantInt::get(
+          type, *reinterpret_cast<uint64_t *>(buff.bytes));
+
+    } else if (2 == size) {
+      BufferOf<uint16_t> buff;
+      memcpy(&(buff.bytes[0]), &(bytes[offset]), sizeof(buff));
+      return llvm::ConstantInt::get(
+          type, *reinterpret_cast<uint64_t *>(buff.bytes));
+
+    } else if (1 == size) {
+      return llvm::ConstantInt::get(type, bytes[offset]);
+
+    } else {
+      LOG(FATAL)
+          << "Unsupported " << size << "-byte integer type "
+          << remill::LLVMThingToString(type);
+      return nullptr;
+    }
+
+  } else if (type->isDoubleTy()) {
+    BufferOf<double> buff;
+    memcpy(&(buff.bytes[0]), &(bytes[offset]), sizeof(buff));
+    return llvm::ConstantFP::get(
+        type, *reinterpret_cast<double *>(buff.bytes));
+
+  } else if (type->isFloatTy()) {
+    BufferOf<float> buff;
+    memcpy(&(buff.bytes[0]), &(bytes[offset]), sizeof(buff));
+    return llvm::ConstantFP::get(
+        type, *reinterpret_cast<float *>(buff.bytes));
+
+  } else {
+    LOG(FATAL)
+        << "Unsupported type " << remill::LLVMThingToString(type)
+        << " in State structure";
+    return nullptr;
+  }
+}
+
 void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
                               std::shared_ptr<AddressSpace> memory) {
   CHECK(memories.empty());
@@ -134,29 +218,21 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
       << "Task structure type for " << task_var_name << " should have at least "
       << "one element";
 
-  auto state_type = llvm::dyn_cast<llvm::ArrayType>(elem_types[0]);
+  auto state_type = llvm::dyn_cast<llvm::StructType>(elem_types[0]);
   CHECK(state_type != nullptr)
-      << "First element type of " << task_var_name << " should be an array";
+      << "First element type of " << task_var_name << " should be a struct";
 
-  auto el_type = state_type->getArrayElementType();
-  auto u8_type = llvm::Type::getInt8Ty(*context);
-  CHECK_EQ(el_type, u8_type)
-      << "First element type of " << task_var_name
-      << " should be an array of uint8_t";
-
-  CHECK_EQ(state_type->getArrayNumElements(), state.size())
+  llvm::DataLayout dl(task_var->getParent());
+  CHECK_EQ(dl.getTypeAllocSize(state_type), state.size())
       << "State structure data from protobuf has " << state.size()
-      << "bytes, but runtime state structure needs "
-      << state_type->getArrayNumElements();
+      << "bytes, but runtime state structure is "
+      << dl.getTypeAllocSize(state_type) << " bytes";
 
-  std::vector<uint8_t> bytes;
-  bytes.reserve(state.size());
-  for (auto c : state) {
-    bytes.push_back(static_cast<uint8_t>(c));
-  }
+  auto bytes = reinterpret_cast<const uint8_t *>(state.data());
+  auto init_state = FillTypeFromBytes(dl, state_type, bytes, 0);
 
   std::vector<llvm::Constant *> initial_vals;
-  initial_vals.push_back(llvm::ConstantDataArray::get(*context, bytes));
+  initial_vals.push_back(init_state);
 
   // Fill out the rest of the task structure with zero-initialization.
   for (size_t i = 1; i < elem_types.size(); ++i) {
@@ -189,10 +265,14 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
   auto state_ptr_type = llvm::dyn_cast<llvm::PointerType>(state_arg->getType());
   CHECK(state_ptr_type != nullptr);
 
+  auto zero =  llvm::ConstantInt::get(pc_type, 0);
+  auto task_state = llvm::ConstantExpr::getInBoundsGetElementPtr(
+      state_ptr_type, task_var, zero);;
+
   cont.args[remill::kPCArgNum] = llvm::ConstantInt::get(pc_type, pc);
   cont.args[remill::kMemoryPointerArgNum] = llvm::ConstantExpr::getIntToPtr(
       llvm::ConstantInt::get(pc_type, task_num), mem_ptr_type);
-  cont.args[remill::kStatePointerArgNum] = llvm::ConstantExpr::getInBoundsGetElementPtr(state_ptr_type,task_var, llvm::ConstantInt::get(pc_type, 0));
+  cont.args[remill::kStatePointerArgNum] = task_state;
 
   llvm::dbgs() << "***********************************" << '\n';
   //LOG(INFO) << std::hex <<

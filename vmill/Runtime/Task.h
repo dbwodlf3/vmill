@@ -75,15 +75,8 @@ enum MemoryValueType : uint16_t {
 //
 // `struct.Task {[u8 * N], ...}
 struct Task {
-
-  uint8_t opaque_state[sizeof(State)];
-
+  State state;
   uint64_t time_stamp_counter;
-
-  inline struct State *State(void) {
-    return reinterpret_cast<struct State *>(&(opaque_state[0]));
-  }
-
 };
 
 extern "C" Task __vmill_task_0;
