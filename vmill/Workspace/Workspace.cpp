@@ -20,6 +20,7 @@
 #include <fcntl.h>
 
 #include <sstream>
+#include <iostream>
 
 #include "remill/OS/FileSystem.h"
 
@@ -27,6 +28,10 @@
 #include "vmill/Program/AddressSpace.h"
 #include "vmill/Program/Snapshot.h"
 #include "vmill/Workspace/Workspace.h"
+
+
+#include "vmill/Arch/Arch.h"
+#include "remill/Arch/Arch.h"
 
 #ifndef VMILL_BUILD_RUNTIME_DIR
 # error "`VMILL_BUILD_RUNTIME_DIR` must be set."
@@ -359,6 +364,7 @@ static void LoadAddressSpaceFromSnapshot(
 
 }  // namespace
 
+
 void Workspace::LoadSnapshotIntoExecutor(
     const ProgramSnapshotPtr &snapshot, Executor &executor) {
 
@@ -382,6 +388,8 @@ void Workspace::LoadSnapshotIntoExecutor(
         << "Adding task starting execution at " << std::hex << pc
         << " in address space " << std::dec << addr_space_id;
 
+    
+    
     executor.AddInitialTask(task.state(), pc, memory);
   }
 }

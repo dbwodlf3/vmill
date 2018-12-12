@@ -139,7 +139,7 @@ void CopyAArch64TraceeState(pid_t pid, pid_t tid, int64_t memory_id,
   thread_info->set_address_space_id(memory_id);
 
   LOG(INFO)
-      << "Copying register state for PID " << std::dec << pid
+      << " Copying register state for PID " << std::dec << pid
       << " and TID " << std::dec << tid << std::endl
       << "  x0 = " << std::hex << gpr.x0.qword << std::endl
       << "  x1 = " << std::hex << gpr.x1.qword << std::endl

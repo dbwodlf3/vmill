@@ -92,6 +92,9 @@ class ConcreteInterpreter : public llvm::VmillInterpreter,
     if (memory->TryRead(addr_uint, &val)) { \
       frame.Values[call] = ConstantToGeneric( \
           llvm::const_type::get(ret_type, val)); \
+      LOG(INFO) \
+        << '\n'<< "valid read of  " << num_bytes << " bytes at address "\
+        << std::hex << addr_uint << std::dec; \
     } else { \
       LOG(FATAL) \
           << "Invalid read of " << num_bytes << " bytes at address " \
@@ -137,6 +140,10 @@ class ConcreteInterpreter : public llvm::VmillInterpreter,
       LOG(FATAL) \
           << "Invalid write of " << val_size << " bytes to address " \
           << std::hex << addr_uint << std::dec; \
+    } else { \
+      LOG(INFO) \
+        <<'\n'<< "Valid write of " << val_size << " bytes to address " \
+        << std::hex << addr_uint << std::dec;\
     } \
     frame.Values[call] = mem_ptr;
 
@@ -204,7 +211,7 @@ class ConcreteInterpreter : public llvm::VmillInterpreter,
     // Returns (by setting the value associated with the `CallInst`) the
     // passed in memory pointer.
     //
-    // NOTE(sae): We don't do anything special for memory barriers.
+    // NOTE(sai): We don't do anything special for memory barriers.
     } else if (intrinsics.barrier_load_load == called_func_ptr ||
                intrinsics.barrier_load_store == called_func_ptr ||
                intrinsics.barrier_store_load == called_func_ptr ||
@@ -239,7 +246,17 @@ class ConcreteInterpreter : public llvm::VmillInterpreter,
   void RunInstructions(void) {
     while (!ECStack->empty()) {
       llvm::VmillExecutionContext &SF = ECStack->back();
+      llvm::Instruction &I = *SF.CurInst++;
+      llvm::dbgs() << "EXECUTING: " << I << '\n';
+      if (auto call = llvm::dyn_cast<llvm::CallInst>(&I)) {
+        if (!HandleFunctionCall(call)) {
+          LOG(ERROR) << remill::LLVMThingToString(call);
+          visit(I);
+        }
+      } else {
 
+        visit(I);
+    
       for (auto &val_genval : SF.Values) {
         std::stringstream ss;
         if (val_genval.first->getType()->isIntegerTy()) {
@@ -259,15 +276,19 @@ class ConcreteInterpreter : public llvm::VmillInterpreter,
         }
       }
 
-      llvm::Instruction &I = *SF.CurInst++;
-      llvm::dbgs() << "EXECUTING: " << I << '\n';
-      if (auto call = llvm::dyn_cast<llvm::CallInst>(&I)) {
-        if (!HandleFunctionCall(call)) {
-          LOG(ERROR) << remill::LLVMThingToString(call);
-          visit(I);
+        if (llvm::isa <llvm::LoadInst> (&I)){
+         LOG(FATAL) << "First  Load Instruction";
         }
-      } else {
-        visit(I);
+
+        if (auto gep = llvm::dyn_cast<llvm::GetElementPtrInst> (&I)){
+            llvm::DataLayout dl(I.getModule());
+            llvm::APInt offset(64,0);
+
+            if (gep->accumulateConstantOffset(dl, offset)){
+                llvm::dbgs() << "****" << offset << " is where the offset is at" << '\n';
+                LOG(INFO) << "Offset is at " << offset.getZExtValue();
+            }
+        }        
       }
     }
   }

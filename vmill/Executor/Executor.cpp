@@ -192,14 +192,26 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
   cont.args[remill::kPCArgNum] = llvm::ConstantInt::get(pc_type, pc);
   cont.args[remill::kMemoryPointerArgNum] = llvm::ConstantExpr::getIntToPtr(
       llvm::ConstantInt::get(pc_type, task_num), mem_ptr_type);
-  cont.args[remill::kStatePointerArgNum] = llvm::ConstantExpr::getBitCast(
-      task_var, state_ptr_type);
+  cont.args[remill::kStatePointerArgNum] = llvm::ConstantExpr::getInBoundsGetElementPtr(state_ptr_type,task_var, llvm::ConstantInt::get(pc_type, 0));
+
+  llvm::dbgs() << "***********************************" << '\n';
+  //LOG(INFO) << std::hex <<
+  //    llvm::dyn_cast<llvm::ConstantInt>(
+  //            cont.args[remill::kPCArgNum])
+  //    -> getLimitedValue() << std::dec;
+  //cont.args[remill::kMemoryPointerArgNum] -> dump();
+  cont.args[remill::kStatePointerArgNum] -> dump();
+
+  llvm::dbgs() << "***********************************" << '\n';
 
   AddTask(interpreter->ConvertContinuationToTask(cont));
 }
 
 AddressSpace *Executor::Memory(uintptr_t index) {
-  return memories[index].get();
+  auto mem = memories[index].get();
+  LOG(INFO)
+    << "Got AddressSpace at index " << index << '\n';
+  return mem;
 }
 
 llvm::Function *Executor::GetLiftedFunction(
