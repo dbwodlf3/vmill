@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "vmill/Executor/Executor.h"
+#include "vmill/KleeExecutor/Executor.h"
 #include "vmill/Executor/Interpreter.h"
 
 #include <glog/logging.h>
@@ -39,13 +39,6 @@
 #include "vmill/Program/AddressSpace.h"
 #include "vmill/Arch/Arch.h"
 #include "vmill/Workspace/Workspace.h"
-
-
-#include "klee/klee.h"
-#include "klee/Interpreter.h"
-#include "klee/ExecutionState.h"
-
-#include <iostream>
 
 namespace vmill {
 namespace {
@@ -93,18 +86,14 @@ Executor::~Executor(void) {
 }
 
 void Executor::Run(void) {
-  klee::InterpreterHandler *handler;
-  klee::Interpreter::InterpreterOptions IOpts;
-  llvm::LLVMContext *ctx = context.get();
-  auto exe = klee::Interpreter::create(*context ,IOpts ,handler);
-  std::cout << "Hello World\n";
-    /*
+    std::cout << "Hello World!!!!" << std::endl;
+  /*
   SetUp();
   while (auto task = NextTask()) {
     interpreter->Interpret(task);
   }
   TearDown();
-*/
+  */
 }
 
 template <typename T>

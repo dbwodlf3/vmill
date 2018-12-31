@@ -63,6 +63,10 @@ set_source_files_properties(${PROJECT_PROTOBUFSOURCEFILES} PROPERTIES COMPILE_FL
 
 add_subdirectory(vmill/Runtime)
 
+set(KLEE_LIBS
+  kleeCore
+)
+
 add_library(${PROJECT_NAME} STATIC
     ${PROJECT_PROTOBUFSOURCEFILES}
 
@@ -86,12 +90,15 @@ add_library(${PROJECT_NAME} STATIC
     vmill/Util/Util.cpp
     vmill/Util/ZoneAllocator.cpp
 
-    
-    third_party/xxHash/xxhash.c
     third_party/llvm/Execution.cpp
     third_party/llvm/Interpreter.cpp
     third_party/llvm/ExternalFunctions.cpp
+    
+    third_party/xxHash/xxhash.c
+    
 )
+
+
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 
@@ -105,10 +112,14 @@ if(NOT TARGET remill)
 endif()
 
 # add everything as public.
-target_link_libraries(${PROJECT_NAME} PUBLIC remill ${ROARING_LIB_NAME} ${ZLIB_LIBRARIES} LLVMCodeGen LLVMAsmPrinter LLVMRuntimeDyld LLVMExecutionEngine LLVMTarget LLVMX86AsmParser LLVMX86AsmPrinter LLVMX86CodeGen LLVMAArch64AsmParser LLVMAArch64AsmPrinter LLVMAArch64CodeGen)
+target_link_libraries(${PROJECT_NAME} PUBLIC remill ${ROARING_LIB_NAME} ${ZLIB_LIBRARIES} LLVMCodeGen LLVMAsmPrinter LLVMRuntimeDyld LLVMExecutionEngine LLVMTarget LLVMX86AsmParser LLVMX86AsmPrinter LLVMX86CodeGen LLVMAArch64AsmParser LLVMAArch64AsmPrinter LLVMAArch64CodeGen LLVMMCJIT ${KLEE_LIBS})
+
+
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC  ${PROJECT_INCLUDEDIRECTORIES})
 target_compile_definitions(${PROJECT_NAME} PUBLIC ${PROJECT_DEFINITIONS})
 #set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS ${PROJECT_CXXFLAGS})
+
+add_dependencies(${PROJECT_NAME} BuildKLEERuntimes)
 
 set(VMILL_INCLUDEDIRECTORIES ${PROJECT_INCLUDEDIRECTORIES})
 
@@ -118,7 +129,8 @@ add_executable(${VMILL_EXECUTE}
     Execute.cpp
 )
 
-target_link_libraries(${VMILL_EXECUTE} PRIVATE vmill ${PROJECT_LIBRARIES})
+target_link_libraries(${VMILL_EXECUTE} PRIVATE vmill ${PROJECT_LIBRARIES} )
+
 target_include_directories(${VMILL_EXECUTE} SYSTEM PUBLIC ${PROJECT_INCLUDEDIRECTORIES})
 target_compile_definitions(${VMILL_EXECUTE} PUBLIC ${PROJECT_DEFINITIONS})
 #set_target_properties(${VMILL_EXECUTE} PROPERTIES COMPILE_FLAGS ${PROJECT_CXXFLAGS})
