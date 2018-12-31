@@ -1,0 +1,12 @@
+rewrite directory structure for where targets end up in vmill cmake and klee cmake
+delete external klee targets
+start impl for interpreter opts and abstract classes in klee
+run something and see what happends I should expect a run time error
+write func defs for run time definitions
+figure out how to load that byte code into klee (LIKE LD PRELOAD)
+Transition to symbolic execution and write sceduler that manges vmill tasks
+successfully wrap vmill with klee
+add multithreaded support to vmill
+start Libfuzzer stuff and usun sanitizers to target good fuzz points
+strat cyberdyne and take snaphshot at these fuzz points run vmill run time on these
+Enter into Rode0Day

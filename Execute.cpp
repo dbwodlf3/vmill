@@ -47,15 +47,15 @@ int main(int argc, char **argv) {
 
   FLAGS_logtostderr = true;
 
-  auto snapshot = vmill::LoadSnapshotFromFile(vmill::Workspace::SnapshotPath());
+  //auto snapshot = vmill::LoadSnapshotFromFile(vmill::Workspace::SnapshotPath());
 
   // Take in the OS and arch names from the snapshot.
-  FLAGS_os = snapshot->os();
-  FLAGS_arch = snapshot->arch();
+  //FLAGS_os = snapshot->os();
+  //FLAGS_arch = snapshot->arch();
 
   // Make sure that we support the snapshotted arch/os combination.
-  CHECK(remill::GetTargetArch() != nullptr)
-      << "Can't find architecture for " << FLAGS_os << " and " << FLAGS_arch;
+  //CHECK(remill::GetTargetArch() != nullptr)
+  //    << "Can't find architecture for " << FLAGS_os << " and " << FLAGS_arch;
 
   vmill::Executor executor;
   //vmill::Workspace::LoadSnapshotIntoExecutor(snapshot, executor);
