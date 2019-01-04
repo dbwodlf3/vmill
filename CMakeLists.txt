@@ -141,21 +141,6 @@ install(
     LIBRARY DESTINATION lib
 )
 
-set(VMILL_LOAD vmill-load-${REMILL_LLVM_VERSION})
-add_executable(${VMILL_LOAD}
-     Load.cpp
-)
- 
-target_link_libraries(${VMILL_LOAD} PRIVATE vmill ${PROJECT_LIBRARIES})
-target_include_directories(${VMILL_LOAD} SYSTEM PUBLIC ${PROJECT_INCLUDEDIRECTORIES} third_party/ELFIO)
-target_compile_definitions(${VMILL_LOAD} PUBLIC ${PROJECT_DEFINITIONS})
- 
-install(
-    TARGETS ${VMILL_LOAD}
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib
-)
-
 if(NOT APPLE)
 	set(VMILL_SNAPSHOT vmill-snapshot-${REMILL_LLVM_VERSION})
 	 

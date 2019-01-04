@@ -93,102 +93,11 @@ Executor::~Executor(void) {
 }
 
 void Executor::Run(void) {
-  klee::InterpreterHandler *handler;
-  klee::Interpreter::InterpreterOptions IOpts;
-  llvm::LLVMContext *ctx = context.get();
-  auto exe = klee::Interpreter::create(*context ,IOpts ,handler);
-  std::cout << "Hello World\n";
-    /*
   SetUp();
   while (auto task = NextTask()) {
     interpreter->Interpret(task);
   }
   TearDown();
-*/
-}
-
-template <typename T>
-struct alignas(T) BufferOf {
- public:
-  uint8_t bytes[sizeof(T)];
-};
-
-static llvm::Constant *FillTypeFromBytes(const llvm::DataLayout &dl,
-                                         llvm::Type *type, const uint8_t *bytes,
-                                         size_t offset) {
-  const size_t size = dl.getTypeAllocSize(type);
-
-  if (auto st = llvm::dyn_cast<llvm::StructType>(type)) {
-    std::vector<llvm::Constant *> elems;
-    for (auto et : st->elements()) {
-      auto et_size = dl.getTypeAllocSize(et);
-      elems.push_back(FillTypeFromBytes(dl, et, bytes, offset));
-      offset += et_size;
-    }
-    return llvm::ConstantStruct::get(st, elems);
-
-  } else if (auto at = llvm::dyn_cast<llvm::ArrayType>(type)) {
-    auto et = at->getArrayElementType();
-    auto et_size = dl.getTypeAllocSize(et);
-    auto num_elems = at->getNumElements();
-    std::vector<llvm::Constant *> elems;
-    for (auto i = 0ULL; i < num_elems; ++i) {
-      elems.push_back(FillTypeFromBytes(dl, et, bytes, offset));
-      offset += et_size;
-    }
-    return llvm::ConstantArray::get(at, elems);
-
-  } else if (type->isIntegerTy()) {
-    if (16 == size) {
-      //uint64_t storage[2];
-      //llvm::APInt val(storage, 128);
-
-    } else if (8 == size) {
-      BufferOf<uint64_t> buff;
-      memcpy(&(buff.bytes[0]), &(bytes[offset]), sizeof(buff));
-      return llvm::ConstantInt::get(
-          type, *reinterpret_cast<uint64_t *>(buff.bytes));
-
-    } else if (4 == size) {
-      BufferOf<uint32_t> buff;
-      memcpy(&(buff.bytes[0]), &(bytes[offset]), sizeof(buff));
-      return llvm::ConstantInt::get(
-          type, *reinterpret_cast<uint64_t *>(buff.bytes));
-
-    } else if (2 == size) {
-      BufferOf<uint16_t> buff;
-      memcpy(&(buff.bytes[0]), &(bytes[offset]), sizeof(buff));
-      return llvm::ConstantInt::get(
-          type, *reinterpret_cast<uint64_t *>(buff.bytes));
-
-    } else if (1 == size) {
-      return llvm::ConstantInt::get(type, bytes[offset]);
-
-    } else {
-      LOG(FATAL)
-          << "Unsupported " << size << "-byte integer type "
-          << remill::LLVMThingToString(type);
-      return nullptr;
-    }
-
-  } else if (type->isDoubleTy()) {
-    BufferOf<double> buff;
-    memcpy(&(buff.bytes[0]), &(bytes[offset]), sizeof(buff));
-    return llvm::ConstantFP::get(
-        type, *reinterpret_cast<double *>(buff.bytes));
-
-  } else if (type->isFloatTy()) {
-    BufferOf<float> buff;
-    memcpy(&(buff.bytes[0]), &(bytes[offset]), sizeof(buff));
-    return llvm::ConstantFP::get(
-        type, *reinterpret_cast<float *>(buff.bytes));
-
-  } else {
-    LOG(FATAL)
-        << "Unsupported type " << remill::LLVMThingToString(type)
-        << " in State structure";
-    return nullptr;
-  }
 }
 
 void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
@@ -243,7 +152,6 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
       << dl.getTypeAllocSize(state_type) << " bytes";
 
   auto bytes = reinterpret_cast<const uint8_t *>(state.data());
-  auto init_state = FillTypeFromBytes(dl, state_type, bytes, 0);
 
   std::vector<llvm::Constant *> initial_vals;
   initial_vals.push_back(init_state);
@@ -280,8 +188,9 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
   CHECK(state_ptr_type != nullptr);
 
   auto zero =  llvm::ConstantInt::get(pc_type, 0);
+
   auto task_state = llvm::ConstantExpr::getInBoundsGetElementPtr(
-      state_ptr_type, task_var, zero);;
+      state_ptr_type, task_var, zero);
 
   cont.args[remill::kPCArgNum] = llvm::ConstantInt::get(pc_type, pc);
   cont.args[remill::kMemoryPointerArgNum] = llvm::ConstantExpr::getIntToPtr(
@@ -294,7 +203,7 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
   //            cont.args[remill::kPCArgNum])
   //    -> getLimitedValue() << std::dec;
   //cont.args[remill::kMemoryPointerArgNum] -> dump();
-  cont.args[remill::kStatePointerArgNum] -> dump();
+  //cont.args[remill::kStatePointerArgNum] -> dump();
 
   llvm::dbgs() << "***********************************" << '\n';
 

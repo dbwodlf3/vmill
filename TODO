@@ -1,12 +1,14 @@
-rewrite directory structure for where targets end up in vmill cmake and klee cmake
-delete external klee targets
-start impl for interpreter opts and abstract classes in klee
-run something and see what happends I should expect a run time error
-write func defs for run time definitions
-figure out how to load that byte code into klee (LIKE LD PRELOAD)
+//rewrite directory structure for where targets end up in vmill cmake and klee cmake
+//delete external klee targets
+start vmill impl for interpreter opts and abstract classes in klee
+run something and see what happends I should expect a run time error for unimplemented remill functions 
+write func defs for run time definitions (can use pre-built mcsema defs for referance) (klee uclibc?)
+figure out how to load that byte code into klee
+    - (LIKE LD PRELOAD) <probs not too bad just cmake changes to produce bitcode>
 Transition to symbolic execution and write sceduler that manges vmill tasks
 successfully wrap vmill with klee
 add multithreaded support to vmill
-start Libfuzzer stuff and usun sanitizers to target good fuzz points
-strat cyberdyne and take snaphshot at these fuzz points run vmill run time on these
+start Libfuzzer stuff and use sanitizers to target good fuzz points <good idea because already lifting to llvm>
+start cyberdyne and take snaphshot at these fuzz points run vmill run time on these
 Enter into Rode0Day
+Ball Out
