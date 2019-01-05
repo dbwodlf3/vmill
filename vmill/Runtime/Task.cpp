@@ -15,9 +15,18 @@
  */
 
 #include "vmill/Runtime/Task.h"
+#include "remill/Arch/Runtime/State.h"
+#include "remill/Arch/Runtime/Intrinsics.cpp"
 
 namespace vmill {
 
-extern "C" Task __vmill_task_0 = {};
+  extern "C" {
+    Task __vmill_task_0 = {};
+
+    int __vmill_entrypoint(int argc, char *argv[], char *envp[]) {
+      auto state = &(__vmill_task_0 -> state);
+      __remill_jump(state,state -> gpr.rip.aword, nullptr);
+      return 0;
+    }
 
 }  // namespace vmill

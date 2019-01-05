@@ -58,8 +58,10 @@ int main(int argc, char **argv) {
       << "Can't find architecture for " << FLAGS_os << " and " << FLAGS_arch;
 
   vmill::Executor executor;
-  //vmill::Workspace::LoadSnapshotIntoExecutor(snapshot, executor);
+  vmill::Workspace::LoadSnapshotIntoExecutor(snapshot, executor);
+  
   executor.Run();
+  
   llvm::llvm_shutdown();
   return EXIT_SUCCESS;
 }

@@ -48,6 +48,7 @@
 #include <iostream>
 
 namespace vmill {
+
 namespace {
 
 static llvm::Module *LoadRuntimeBitcode(llvm::LLVMContext *context) {
@@ -196,16 +197,6 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
   cont.args[remill::kMemoryPointerArgNum] = llvm::ConstantExpr::getIntToPtr(
       llvm::ConstantInt::get(pc_type, task_num), mem_ptr_type);
   cont.args[remill::kStatePointerArgNum] = task_state;
-
-  llvm::dbgs() << "***********************************" << '\n';
-  //LOG(INFO) << std::hex <<
-  //    llvm::dyn_cast<llvm::ConstantInt>(
-  //            cont.args[remill::kPCArgNum])
-  //    -> getLimitedValue() << std::dec;
-  //cont.args[remill::kMemoryPointerArgNum] -> dump();
-  //cont.args[remill::kStatePointerArgNum] -> dump();
-
-  llvm::dbgs() << "***********************************" << '\n';
 
   AddTask(interpreter->ConvertContinuationToTask(cont));
 }
