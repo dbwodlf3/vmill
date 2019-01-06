@@ -23,11 +23,36 @@
 #include "klee/Expr.h"
 #include "klee/ExecutionState.h"
 #include "klee/Internal/Support/Debug.h"
+
 #include "klee/Internal/Support/ErrorHandling.h"
+
 #include "klee/Internal/Support/FileHandling.h"
 #include "klee/Internal/Support/ModuleUtil.h"
 #include "klee/Internal/Support/PrintVersion.h"
 #include "klee/Internal/System/Time.h"
+
+#include "klee/Config/Version.h"
+#include "klee/Internal/ADT/KTest.h"
+#include "klee/Internal/ADT/TreeStream.h"                                                                        
+#include "klee/Statistics.h"
+
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Type.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Errno.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Support/Signals.h"
+#include <llvm/Bitcode/BitcodeReader.h>
 
 #include "remill/BC/ABI.h"
 
@@ -52,68 +77,74 @@ namespace vmill {
 
 class ConcreteTask {
   public:
-    llvm::Function * first_func;
-    llvm::Constant args[remill::kNumBlockArgs];
+    llvm::Function *first_func;
+    llvm::Constant *args[remill::kNumBlockArgs];
     int argc;
     char **argv;
     char **envp;
   
-  ConcreteTask(llvm::Function *func_, 
-          llvm::Constant *args_[remill::kNumBlockArgs]):
-      first_func(func_),
-      args(args_){
-          argc(2);
-          argv = {"vmill filler string",}
-          envp = {"vmill filler string",}
-      }
-
 };
 
 class VmillHandler: public klee::InterpreterHandler {
     public:
-      VmillHandler() ;
+      VmillHandler();
       ~VmillHandler() = default;
-      void setInterpreter(klee::Interpreter *i) override;
-      llvm::raw_ostream &getInfoStream() const override { return *info_file; };
+      void setInterpreter(klee::Interpreter *i);
+      llvm::raw_ostream &getInfoStream() const override { return *info_file; }
       uint64_t getNumPathsExplored() { return paths_explored; }
-      void incPathsExplored override{ paths_explored++; }
+      void incPathsExplored() override { paths_explored++; }
       std::string getOutputFilename(const std::string &filename) override;
       std::unique_ptr<llvm::raw_fd_ostream> openOutputFile(const std::string &filename) override;
+      void processTestCase(const klee::ExecutionState &state,
+                                const char *err,
+                                const char *suffix) override;
 
     private:
       klee::Interpreter *interpreter;
-      std::unique_ptr<llvm::raw_ostream> info_file;
 
       uint64_t total_tests;
       uint64_t num_generated_tests;
       uint64_t paths_explored;
+
+      std::unique_ptr<llvm::raw_ostream> info_file;
 };
 
 VmillHandler::VmillHandler()//int argc, char **argv)
-    : interpreter(0), total_tests(0), num_generated_tests(0),
+    : klee::InterpreterHandler(), 
+      interpreter(0), total_tests(0), num_generated_tests(0),
       paths_explored(0), info_file(nullptr) {}
 
-VmillHandler::setInterpreter(klee::Interpreter *i) override {
+void VmillHandler::setInterpreter(klee::Interpreter *i){
   interpreter = i;
 }
 
 std::string VmillHandler::getOutputFilename(const std::string &filename) {
-  SmallString<128> path = "";
-  sys::path::append(path,filename);
+  llvm::SmallString<128> path("");
+  llvm::sys::path::append(path,filename);
   return path.str();
 }
 
-std::unique_ptr<llvm::raw_fd_ostream> VmillHandler::openOutputFile(const std::string &filename) override{
+std::unique_ptr<llvm::raw_fd_ostream> 
+VmillHandler::openOutputFile(const std::string &filename) {
   return nullptr;
 }
 
+
+void VmillHandler::processTestCase(const klee::ExecutionState &state,
+						const char *err,
+						const char *suffix){ return;}
+
+
 #define LIBKLEE_PATH  "libklee-libc.bca"
-class KleeInterpreter: public Interpreter {
+class KleeInterpreter : public Interpreter {
   public:
     KleeInterpreter(
       llvm::LLVMContext &context,
-      llvm::Module *module_):
-        module(module_) {
+      llvm::Module *module_, 
+      Executor *exe_):
+		Interpreter(),
+        module(module_),
+        exe(exe_) {
 		
 		std::string LibraryDir = 
 			"/home/sai/ToB/remill-build/Debug+Asserts/lib/";
@@ -131,32 +162,31 @@ class KleeInterpreter: public Interpreter {
 		
 		
 	   loadedModules.emplace_back(std::unique_ptr<llvm::Module>(module));
-       SmallString<128> Path(Opts.LibraryDir);
-       llvm::sys::path::append(Path, "libklee-libc.bca");
-       if (!klee::loadFile(Path.c_str(), mainModule->getContext(), loadedMod     ules, errorMsg)){
-         klee_error("error loading klee libc '%s': %s", Path.c_str(),
-                  errorMsg.c_str());
+       llvm::SmallString<128> Path(Opts.LibraryDir);
+       llvm::sys::path::append(Path, LIBKLEE_PATH );
+       if (!klee::loadFile(Path.c_str(), module->getContext(), loadedModules, errorMsg)){
+         LOG(FATAL) << "error loading klee libc" << Path.c_str(),  errorMsg.c_str();
 	  }
 
      klee::Interpreter::InterpreterOptions IOpts;
      IOpts.MakeConcreteSymbolic = false;
      VmillHandler *handler =  new VmillHandler(); //  delete later
    
-     intero_impl = klee::Interpreter::create(context, IOpts, handler);
-     handler->setInterpreter(interp_impl);
-     module = interp_impl -> setModule(loadedModules);
+     interp_impl = std::unique_ptr<klee::Interpreter>(klee::Interpreter::create(context, IOpts, handler));
+     handler->setInterpreter(interp_impl.get());
+     module = interp_impl -> setModule(loadedModules, Opts);
 
-}
+    }
 
     ~KleeInterpreter() = default;
 
     void Interpret(void *task_) override {
-      interp_impl->setInhibitForking(true); //inhibits forking; for concrete interpretation
+      interp_impl->setInhibitForking(true); //  inhibits forking; for concrete interpretation
       auto c_task = static_cast<ConcreteTask *>(task_);
 	  llvm::Function * entrypoint = module ->
 								getFunction("__vmill_entrypoint");
       
-	  interpreter->runFunctionAsMain( entrypoint, 
+	  interp_impl->runFunctionAsMain( entrypoint, 
                                      c_task->argc,
                                      c_task->argv,
                                      c_task->envp );
@@ -164,14 +194,29 @@ class KleeInterpreter: public Interpreter {
     }
     
     void *ConvertContinuationToTask(const TaskContinuation &cont) override {
-    auto task = new ConcreteTask(cont.continuation, cont.args);
-    return task;
+      auto task = new ConcreteTask; //(cont.continuation, cont.args); // d later
+      for (size_t i=0; i < remill::kNumBlockArgs; ++i){
+		    task->args[i] = cont.args[i];
+	  }	
+      task->argc = 3;
+      task->argv = {}; //{"vmill",}
+      task->envp = {}; //{"vmill",}
+
+      return task;
     }
 
   private:
     llvm::Module *module;
+    Executor *exe;
     std::unique_ptr<klee::Interpreter> interp_impl;
 	std::vector<std::unique_ptr<llvm::Module>> loadedModules;
 };
+
+Interpreter::~Interpreter(void) {}
+
+Interpreter *Interpreter::CreateConcrete(
+	llvm::Module *module, Executor *exe) {
+    return new KleeInterpreter(module -> getContext(), module, exe);
+}
 
 } // namespace vmill

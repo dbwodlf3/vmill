@@ -95,9 +95,14 @@ Executor::~Executor(void) {
 
 void Executor::Run(void) {
   SetUp();
+  LOG(INFO) << "Setting Up The Klee Interpreter";
   while (auto task = NextTask()) {
+    LOG(INFO) << "Interpreting Tasks!";
     interpreter->Interpret(task);
   }
+  lifted_code -> dump();
+
+  LOG(INFO) << "Tearing Down the Executor";
   TearDown();
 }
 
@@ -134,28 +139,35 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
 
   auto task_struct_type = llvm::dyn_cast<llvm::StructType>(
       task_var->getInitializer()->getType());
-  CHECK(task_struct_type)
-      << "Task variable " << task_var_name << " must have a vmill::Task type";
+      CHECK(task_struct_type) << "Task variable " << task_var_name << " must have a vmill::Task type";
 
   auto elem_types = task_struct_type->elements();
   CHECK_GE(elem_types.size(), 1)
-      << "Task structure type for " << task_var_name << " should have at least "
-      << "one element";
+      << "Task structure type for " << task_var_name << " should have at least " << "one element";
 
-  auto state_type = llvm::dyn_cast<llvm::StructType>(elem_types[0]);
+  auto state_type = llvm::dyn_cast<llvm::ArrayType>(elem_types[0]);
   CHECK(state_type != nullptr)
-      << "First element type of " << task_var_name << " should be a struct";
+      << "First element type of " << task_var_name << " should be an array";
 
-  llvm::DataLayout dl(task_var->getParent());
-  CHECK_EQ(dl.getTypeAllocSize(state_type), state.size())
+  auto el_type = state_type->getArrayElementType();
+  auto u8_type = llvm::Type::getInt8Ty(*context);
+  CHECK_EQ(el_type, u8_type)
+      << "First element type of " << task_var_name
+      << " should be an array of uint8_t";
+
+  CHECK_EQ(state_type->getArrayNumElements(), state.size())
       << "State structure data from protobuf has " << state.size()
-      << "bytes, but runtime state structure is "
-      << dl.getTypeAllocSize(state_type) << " bytes";
+      << "bytes, but runtime state structure needs "
+      << state_type->getArrayNumElements();
 
-  auto bytes = reinterpret_cast<const uint8_t *>(state.data());
+  std::vector<uint8_t> bytes;
+  bytes.reserve(state.size());
+  for (auto c : state) {
+    bytes.push_back(static_cast<uint8_t>(c));
+  }
 
   std::vector<llvm::Constant *> initial_vals;
-  initial_vals.push_back(init_state);
+  initial_vals.push_back(llvm::ConstantDataArray::get(*context, bytes));
 
   // Fill out the rest of the task structure with zero-initialization.
   for (size_t i = 1; i < elem_types.size(); ++i) {
@@ -188,17 +200,17 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
   auto state_ptr_type = llvm::dyn_cast<llvm::PointerType>(state_arg->getType());
   CHECK(state_ptr_type != nullptr);
 
-  auto zero =  llvm::ConstantInt::get(pc_type, 0);
-
-  auto task_state = llvm::ConstantExpr::getInBoundsGetElementPtr(
-      state_ptr_type, task_var, zero);
-
   cont.args[remill::kPCArgNum] = llvm::ConstantInt::get(pc_type, pc);
-  cont.args[remill::kMemoryPointerArgNum] = llvm::ConstantExpr::getIntToPtr(
-      llvm::ConstantInt::get(pc_type, task_num), mem_ptr_type);
-  cont.args[remill::kStatePointerArgNum] = task_state;
+  cont.args[remill::kMemoryPointerArgNum] = 
+llvm::ConstantExpr::getIntToPtr(llvm::ConstantInt::get(
+								pc_type, task_num), mem_ptr_type);
+  cont.args[remill::kStatePointerArgNum] = 
+		llvm::ConstantExpr::getBitCast(task_var, state_ptr_type);
 
-  AddTask(interpreter->ConvertContinuationToTask(cont));
+  LOG(INFO) << "BEFORE INTERPRETER CONVERSION";
+  tasks.push_back(interpreter->ConvertContinuationToTask(cont));
+  LOG(INFO) << "GOT THROUGH INITIAL TASK";
+
 }
 
 AddressSpace *Executor::Memory(uintptr_t index) {
