@@ -24,9 +24,10 @@ namespace vmill {
     Task __vmill_task_0 = {};
 
     int __vmill_entrypoint(int argc, char *argv[], char *envp[]) {
-      auto state = &(__vmill_task_0 -> state);
-      __remill_jump(state,state -> gpr.rip.aword, nullptr);
+      auto state = __vmill_task_0.state;
+      __remill_jump(state, state.gpr.rip.aword , nullptr);
       return 0;
     }
+  }
 
 }  // namespace vmill
