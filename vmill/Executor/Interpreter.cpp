@@ -55,6 +55,7 @@
 #include <llvm/Bitcode/BitcodeReader.h>
 
 #include "remill/BC/ABI.h"
+#include "remill/BC/Util.h"
 
 #include <memory>
 #include <cxxabi.h>
@@ -112,21 +113,34 @@ class VmillHandler: public klee::InterpreterHandler {
 VmillHandler::VmillHandler()//int argc, char **argv)
     : klee::InterpreterHandler(), 
       interpreter(0), total_tests(0), num_generated_tests(0),
-      paths_explored(0), info_file(nullptr) {}
+      paths_explored(0) {
+	
+	info_file = openOutputFile("info");
+}
 
 void VmillHandler::setInterpreter(klee::Interpreter *i){
   interpreter = i;
 }
 
 std::string VmillHandler::getOutputFilename(const std::string &filename) {
-  llvm::SmallString<128> path("");
+  llvm::SmallString<128> path("./");
   llvm::sys::path::append(path,filename);
   return path.str();
 }
 
 std::unique_ptr<llvm::raw_fd_ostream> 
 VmillHandler::openOutputFile(const std::string &filename) {
-  return nullptr;
+   std::string Error;
+   std::string path = getOutputFilename(filename);
+   auto f = klee::klee_open_output_file(path, Error);
+   if (!f) {
+     LOG(FATAL) << "error opening file \"%s\".  KLEE may have run out of file "
+                 << "descriptors: try to increase the maximum number of open file "
+                  << "descriptors by using ulimit (%s).";
+     return nullptr;
+   }
+   return f;
+
 }
 
 
@@ -146,6 +160,8 @@ class KleeInterpreter : public Interpreter {
         module(module_),
         exe(exe_) {
 		
+		llvm::InitializeNativeTarget();
+		
 		std::string LibraryDir = 
 			"/home/sai/ToB/remill-build/Debug+Asserts/lib/";
         std::string EntryPoint = "__vmill_entrypoint";
@@ -159,22 +175,51 @@ class KleeInterpreter : public Interpreter {
 											  Optimize,
 											  CheckDivZero,
 											  CheckOvershift);
-		
-		
-	   loadedModules.emplace_back(std::unique_ptr<llvm::Module>(module));
+	
+	   #define target_file	"/home/sai/ToB/remill-build/bin/target.bc"
+	   remill::StoreModuleToFile(module, target_file);
+
+       if (!klee::loadFile(target_file, context, loadedModules, errorMsg)) {
+	     LOG(FATAL) << "error loading program " << target_file;   
+       } 
+	
+  	   LOG(INFO) << "Extracted target file";
+	    
+	   std::unique_ptr<llvm::Module> M(klee::linkModules( 
+         loadedModules, "" /* link all modules together */, errorMsg));
+       if (!M) {
+         LOG(FATAL) << "error loading program";
+       }
+
+	   llvm::Module * mainModule = M.get();
+	   LOG(INFO) << "main module passed";	
+	   loadedModules.emplace_back(std::move(M));
+/*		
        llvm::SmallString<128> Path(Opts.LibraryDir);
        llvm::sys::path::append(Path, LIBKLEE_PATH );
-       if (!klee::loadFile(Path.c_str(), module->getContext(), loadedModules, errorMsg)){
-         LOG(FATAL) << "error loading klee libc" << Path.c_str(),  errorMsg.c_str();
+       LOG(INFO) << "KLEE LIBC LINKAGE IS OCCURING";
+       if (!klee::loadFile(Path.c_str(), mainModule->getContext(), 
+	   		loadedModules, errorMsg )){
+            LOG(FATAL) << "error loading klee libc " << Path.c_str(),  errorMsg.c_str();
 	  }
+*/
+     llvm::SmallString<128> Path(Opts.LibraryDir);
+     llvm::sys::path::append(Path, "libkleeRuntimeFreeStanding.bca");
+     if (!klee::loadFile(Path.c_str(), mainModule->getContext(), loadedModules,
+                         errorMsg)){
+       LOG(FATAL) << "BAD LINK"; 
+	 }
 
+	 LOG(INFO) << "PASSED LINK !";
      klee::Interpreter::InterpreterOptions IOpts;
      IOpts.MakeConcreteSymbolic = false;
      VmillHandler *handler =  new VmillHandler(); //  delete later
+	 LOG(INFO) << "Handler has been created";
    
      interp_impl = std::unique_ptr<klee::Interpreter>(klee::Interpreter::create(context, IOpts, handler));
      handler->setInterpreter(interp_impl.get());
      module = interp_impl -> setModule(loadedModules, Opts);
+	 //  module->dump(); debugging utility
 
     }
 

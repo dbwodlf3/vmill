@@ -145,7 +145,8 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
   CHECK_GE(elem_types.size(), 1)
       << "Task structure type for " << task_var_name << " should have at least " << "one element";
 
-  auto state_type = llvm::dyn_cast<llvm::ArrayType>(elem_types[0]);
+  auto state_type = llvm::dyn_cast<llvm::ArrayType>(elem_types[2]);
+  llvm::dbgs() << *elem_types[2] << '\n';
   CHECK(state_type != nullptr)
       << "First element type of " << task_var_name << " should be an array";
 
@@ -155,10 +156,10 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
       << "First element type of " << task_var_name
       << " should be an array of uint8_t";
 
-  CHECK_EQ(state_type->getArrayNumElements(), state.size())
-      << "State structure data from protobuf has " << state.size()
-      << "bytes, but runtime state structure needs "
-      << state_type->getArrayNumElements();
+  //CHECK_EQ(state_type->getArrayNumElements(), state.size())
+  //    << "State structure data from protobuf has " << state.size()
+  //    << "bytes, but runtime state structure needs "
+  //    << state_type->getArrayNumElements();
 
   std::vector<uint8_t> bytes;
   bytes.reserve(state.size());
@@ -201,14 +202,15 @@ void Executor::AddInitialTask(const std::string &state, const uint64_t pc,
   CHECK(state_ptr_type != nullptr);
 
   cont.args[remill::kPCArgNum] = llvm::ConstantInt::get(pc_type, pc);
-  cont.args[remill::kMemoryPointerArgNum] = 
-llvm::ConstantExpr::getIntToPtr(llvm::ConstantInt::get(
+  cont.args[remill::kMemoryPointerArgNum] = llvm::ConstantExpr::getIntToPtr(llvm::ConstantInt::get(
 								pc_type, task_num), mem_ptr_type);
   cont.args[remill::kStatePointerArgNum] = 
 		llvm::ConstantExpr::getBitCast(task_var, state_ptr_type);
 
   LOG(INFO) << "BEFORE INTERPRETER CONVERSION";
+  
   tasks.push_back(interpreter->ConvertContinuationToTask(cont));
+  
   LOG(INFO) << "GOT THROUGH INITIAL TASK";
 
 }
