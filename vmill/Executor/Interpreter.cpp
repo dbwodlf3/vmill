@@ -19,7 +19,6 @@
 
 #include "klee/klee.h"
 #include "klee/Interpreter.h"
-#include "klee/lib/Core/Executor.h"
 #include "klee/Expr.h"
 #include "klee/ExecutionState.h"
 #include "klee/Internal/Support/Debug.h"
@@ -243,7 +242,7 @@ class KleeInterpreter : public Interpreter {
       for (size_t i=0; i < remill::kNumBlockArgs; ++i){
 		    task->args[i] = cont.args[i];
 	  }	
-      task->argc = 3;
+      task->argc = 0;
       task->argv = {}; //{"vmill",}
       task->envp = {}; //{"vmill",}
 

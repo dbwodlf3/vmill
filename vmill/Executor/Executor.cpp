@@ -49,6 +49,8 @@
 
 namespace vmill {
 
+thread_local Executor *gExecutor;
+
 namespace {
 
 static llvm::Module *LoadRuntimeBitcode(llvm::LLVMContext *context) {
@@ -68,9 +70,13 @@ Executor::Executor(void)
       lifter(*lifted_code, trace_manager),
       interpreter(Interpreter::CreateConcrete(lifted_code, this)) {}
  
-void Executor::SetUp(void) {}
+void Executor::SetUp(void) {
+  gExecutor = this;
+}
 
-void Executor::TearDown(void) {}
+void Executor::TearDown(void) {
+  gExecutor = nullptr;
+}
 
 Executor::~Executor(void) {
 
@@ -100,7 +106,8 @@ void Executor::Run(void) {
     LOG(INFO) << "Interpreting Tasks!";
     interpreter->Interpret(task);
   }
-  lifted_code -> dump();
+  //lifted_code -> dump();
+  remill::StoreModuleIRToFile(lifted_code, "IR", false);
 
   LOG(INFO) << "Tearing Down the Executor";
   TearDown();
