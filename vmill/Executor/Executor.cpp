@@ -210,18 +210,12 @@ bool Executor::DoRead(uint64_t size, uint64_t address, uint64_t pc, void *val) {
         return mem->TryRead(pc, reinterpret_cast<uint64_t *>(val));
       } case 4:{
         LOG(INFO) << "HIT CASE 4";
-        uint32_t val32 = 0;
-
         return mem->TryRead(pc, reinterpret_cast<uint32_t *>(val));
-
       } case 2: {
         LOG(INFO) << "HIT CASE 2";
-        uint16_t val16 = 0;
-
         return mem->TryRead(pc, reinterpret_cast<uint16_t *>(val));
       } case 1: {
         LOG(INFO) << "HIT CASE 1";
-        uint8_t val8 = 0;
         return mem->TryRead(pc, reinterpret_cast<uint8_t *>(val));
       } default: {
         LOG(INFO) << "HIT CASE DEFAULT";
