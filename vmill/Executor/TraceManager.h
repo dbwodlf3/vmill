@@ -22,6 +22,7 @@ namespace vmill {
 
 class AddressSpace;
 class TraceLifter;
+class Executor;
 
 class TraceManager : public ::remill::TraceManager {
  public:

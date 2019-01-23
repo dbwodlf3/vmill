@@ -58,6 +58,7 @@
 
 #include <memory>
 #include <cxxabi.h>
+#include <sstream>
 
 namespace llvm {
   class Module;
@@ -78,11 +79,9 @@ namespace vmill {
 class ConcreteTask {
   public:
     llvm::Function *first_func;
-    llvm::Constant *args[remill::kNumBlockArgs];
     int argc;
-    char **argv;
+    char *argv[3];
     char **envp;
-  
 };
 
 class VmillHandler: public klee::InterpreterHandler {
@@ -176,12 +175,24 @@ class KleeInterpreter : public Interpreter {
 											  CheckOvershift);
 	
 	   #define target_file	"/home/sai/ToB/remill-build/bin/target.bc"
-	   remill::StoreModuleToFile(module, target_file);
+
+       std::vector<llvm::Function *> lifted_funcs;
+       for (auto &g: module->functions()){
+           LOG(INFO) << g.getName().data();
+           if(std::string(g.getName().data()).compare(0,4,"sub_") == 0){
+               lifted_funcs.push_back(&g);
+           }
+       }
+
+       LOG(INFO) << "There are " << lifted_funcs.size() << " lifted functions";
+
+  	   remill::StoreModuleToFile(module, target_file);
 
        if (!klee::loadFile(target_file, context, loadedModules, errorMsg)) {
 	     LOG(FATAL) << "error loading program " << target_file;   
        } 
-	
+	   
+
   	   LOG(INFO) << "Extracted target file";
 	    
 	   std::unique_ptr<llvm::Module> M(klee::linkModules( 
@@ -189,10 +200,10 @@ class KleeInterpreter : public Interpreter {
        if (!M) {
          LOG(FATAL) << "error loading program";
        }
-
+      	
 	   llvm::Module * mainModule = M.get();
 	   LOG(INFO) << "main module passed";	
-	   loadedModules.emplace_back(std::move(M));
+       loadedModules.emplace_back(std::move(M));
 /*		
        llvm::SmallString<128> Path(Opts.LibraryDir);
        llvm::sys::path::append(Path, LIBKLEE_PATH );
@@ -208,8 +219,8 @@ class KleeInterpreter : public Interpreter {
                          errorMsg)){
        LOG(FATAL) << "BAD LINK"; 
 	 }
-
-	 LOG(INFO) << "PASSED LINK !";
+     
+     LOG(INFO) << "PASSED LINK !";
      klee::Interpreter::InterpreterOptions IOpts;
      IOpts.MakeConcreteSymbolic = false;
      VmillHandler *handler =  new VmillHandler(); //  delete later
@@ -217,9 +228,11 @@ class KleeInterpreter : public Interpreter {
    
      interp_impl = std::unique_ptr<klee::Interpreter>(klee::Interpreter::create(context, IOpts, handler));
      handler->setInterpreter(interp_impl.get());
+     
+     interp_impl->setLiftedFunctions(lifted_funcs);
+     interp_impl->setVmillExecutor(exe);
      module = interp_impl -> setModule(loadedModules, Opts);
-	 //  module->dump(); debugging utility
-
+  //  module->dump(); debugging utility
     }
 
     ~KleeInterpreter() = default;
@@ -229,8 +242,14 @@ class KleeInterpreter : public Interpreter {
       auto c_task = static_cast<ConcreteTask *>(task_);
 	  llvm::Function * entrypoint = module ->
 								getFunction("__vmill_entrypoint");
-      
-	  interp_impl->runFunctionAsMain( entrypoint, 
+
+      llvm::dbgs() << '\n';
+
+      LOG(INFO) << c_task->argc;
+      LOG(INFO) << c_task->argv[0];
+      LOG(INFO) << *(c_task->argv[0]);
+
+      interp_impl->runFunctionAsMain( entrypoint, 
                                      c_task->argc,
                                      c_task->argv,
                                      c_task->envp );
@@ -239,11 +258,14 @@ class KleeInterpreter : public Interpreter {
     
     void *ConvertContinuationToTask(const TaskContinuation &cont) override {
       auto task = new ConcreteTask; //(cont.continuation, cont.args); // d later
-      for (size_t i=0; i < remill::kNumBlockArgs; ++i){
-		    task->args[i] = cont.args[i];
-	  }	
-      task->argc = 0;
-      task->argv = {}; //{"vmill",}
+      
+      task->argc = 1;
+      char * str = new char[cont.state.size()];
+      for(int i=0; i< cont.state.size();++i) {
+        str[i] = cont.state.c_str()[i]; //{"vmill",}
+      }
+
+      task->argv[0] = str;
       task->envp = {}; //{"vmill",}
 
       return task;

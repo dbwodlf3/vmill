@@ -25,12 +25,22 @@
 
 #include "vmill/BC/TraceLifter.h"
 #include "vmill/Executor/TraceManager.h"
+#include "../../../../include/klee/Interpreter.h"
 
 namespace llvm {
 class Constant;
 class Function;
 class LLVMContext;
 }  // namespace llvm
+
+namespace remill {
+  class TraceManager;
+} //  namespace remill
+
+namespace klee {
+  class vmill_executor;
+}
+
 
 namespace vmill {
 
@@ -40,13 +50,15 @@ class Interpreter;
 
 class TaskContinuation {
  public:
-  llvm::Constant *args[remill::kNumBlockArgs];
+  //llvm::Constant *args[remill::kNumBlockArgs];
+  std::string state;
+  uint64_t pc;
   llvm::Function *continuation;
 };
 
 class Interpreter;
 
-class Executor {
+class Executor : public klee::vmill_executor {
  public:
   Executor(void);
   ~Executor(void);
@@ -62,6 +74,10 @@ class Executor {
   void *NextTask(void);
   void AddTask(void *task);
 
+  llvm::Function *RequestFunc(uint64_t pc, uint64_t idx) override;
+  bool DoWrite(uint64_t size, uint64_t address, uint64_t pc, uint64_t value) override;
+  bool DoRead(uint64_t size, uint64_t address, uint64_t pc, void *val ) override;
+ 
  private:
   std::shared_ptr<llvm::LLVMContext> context;
   llvm::Module *lifted_code;

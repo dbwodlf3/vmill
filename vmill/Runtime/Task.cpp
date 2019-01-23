@@ -22,6 +22,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/Support/Debug.h"
 
+
 namespace vmill {
   extern thread_local Executor *gExecutor;
   
@@ -30,50 +31,34 @@ namespace vmill {
     
     Task __vmill_task_0 = {};
 
-	uint64_t __vmill_inc_task_num(){
-	  return ++task_num;
+    typedef Memory * (LiftedFunc)(State &, addr_t, Memory *);
+
+	LiftedFunc *__vmill_klee_hook(addr_t pc);
+
+	Memory * __remill_jump(State &state, addr_t pc, Memory *memory) {
+      state.gpr.rip.aword = pc;
+      auto func = __vmill_klee_hook(pc);
+      return func(state, pc, memory);
 	}
 
-    llvm::Function *__vmill_modify_klee_pc( llvm::Function *func ){
-      //  implemented in klee's function handler
-	   return func;
+    Memory * __remill_write_memory_64(Memory * memory, addr_t pc, uint64_t value){
+      return memory; 
     }
 
-	Memory *__remill_jump(State &state, addr_t pc, Memory *memory){
-      auto mem = gExecutor -> Memory(task_num);
-      auto lifted_func = gExecutor -> GetLiftedFunction( mem, pc );
-	  if (!lifted_func) {
-          //llvm::dbgs() << "A Lifted Function Does Not Exist at" << pc;
-          //llvm::dbgs() << '\n';
-          exit(1337);
-	  }
-      //auto ins = &*(inst_begin(lifted_func));
-	  __vmill_modify_klee_pc(lifted_func);
-      return memory;
+    uint64_t __remill_read_memory_64(Memory * memory, addr_t pc){
+      return pc; 
     }
 
-    int __vmill_entrypoint(int argc, char *argv[], char *envp[]) {
-      if ( gExecutor == nullptr ){
-          //llvm::dbgs() << "The Executor is a NULL Value";
-          //llvm::dbgs() << '\n';
-          exit(0);
-      }
+	int __vmill_entrypoint(int argc, char *argv[3], char *envp[]) {
+	  assert(argc == 1);
+	  Memory *memory = nullptr;
 
-      auto state = __vmill_task_0.state;
-      addr_t pc = state.gpr.rip.aword;
-      //llvm::dbgs() << "First PC is " << pc;
-      //llvm::dbgs() << '\n';
-     __remill_jump(state, pc , nullptr);
-      auto mem = gExecutor -> Memory(task_num);
-      auto lifted_func = gExecutor -> GetLiftedFunction( mem, pc );
-	  if (!lifted_func) {
-          exit(1337);
-	  }
-      //auto ins = &*(inst_begin(lifted_func));
-	  __vmill_modify_klee_pc(lifted_func);
- 
-      return 0;
-    }
+	  memcpy(&(__vmill_task_0.state), argv[0], sizeof(__vmill_task_0.state));
+	  //memcpy(&memory, argv[2], sizeof(memory));
+	  __remill_jump(__vmill_task_0.state, __vmill_task_0.state.gpr.rip.aword, memory);
+	  return 0;
+	}
+
   } // extern C
 
 }  // namespace vmill

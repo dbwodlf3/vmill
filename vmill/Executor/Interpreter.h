@@ -24,9 +24,8 @@
   
 #include "vmill/Program/AddressSpace.h"
   
-#include "third_party/klee/klee.h"
-#include "third_party/klee/Interpreter.h"
-#include "third_party/llvm/Interpreter.h"
+#include "klee/klee.h"
+#include "klee/Interpreter.h"
   
 namespace remill {
   class IntrinsicTable;
