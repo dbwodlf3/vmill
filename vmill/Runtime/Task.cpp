@@ -14,18 +14,14 @@
  * limitations under the License.
  */
 
-#include "vmill/Executor/Executor.h"
 #include "vmill/Runtime/Task.h"
 #include "remill/Arch/Runtime/State.h"
-//#include "remill/Arch/Runtime/Intrinsics.cpp"
 
 #include "llvm/IR/Function.h"
 #include "llvm/Support/Debug.h"
 
 
 namespace vmill {
-  extern thread_local Executor *gExecutor;
-  
   extern "C" {
     uint64_t task_num = 0;
     
@@ -33,11 +29,11 @@ namespace vmill {
 
     typedef Memory * (LiftedFunc)(State &, addr_t, Memory *);
 
-	LiftedFunc *__vmill_klee_hook(addr_t pc);
+	LiftedFunc *__vmill_get_lifted_function(addr_t pc);
 
 	Memory * __remill_jump(State &state, addr_t pc, Memory *memory) {
       state.gpr.rip.aword = pc;
-      auto func = __vmill_klee_hook(pc);
+      auto func = __vmill_get_lifted_function(pc);
       return func(state, pc, memory);
 	}
 

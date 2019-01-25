@@ -24,7 +24,6 @@
 
 #include "remill/OS/FileSystem.h"
 
-#include "vmill/Executor/Executor.h"
 #include "vmill/Program/AddressSpace.h"
 #include "vmill/Program/Snapshot.h"
 #include "vmill/Workspace/Workspace.h"
@@ -224,10 +223,10 @@ const std::string &Workspace::RuntimeLibraryPath(void) {
 namespace {
 
 using AddressSpaceIdToMemoryMap = \
-    std::unordered_map<int64_t, std::shared_ptr<AddressSpace>>;
+    std::unordered_map<int64_t, std::shared_ptr<vmill::AddressSpace>>;
 
 // Load in the data from the snapshotted page range into the address space.
-static void LoadPageRangeFromFile(AddressSpace *addr_space,
+static void LoadPageRangeFromFile(vmill::AddressSpace *addr_space,
                                   const snapshot::PageRange &range) {
   std::stringstream ss;
   ss << Workspace::MemoryDir() << remill::PathSeparator() << range.name();
@@ -288,7 +287,7 @@ static void LoadAddressSpaceFromSnapshot(
       << "Address space " << std::dec << orig_addr_space.id()
       << " has already been deserialized.";
 
-  std::shared_ptr<AddressSpace> emu_addr_space;
+  std::shared_ptr<vmill::AddressSpace> emu_addr_space;
 
   // Create the address space, either as a clone of a parent, or as a new one.
   if (orig_addr_space.has_parent_id()) {
@@ -298,9 +297,9 @@ static void LoadAddressSpaceFromSnapshot(
         << " for address space " << std::dec << orig_addr_space.id();
 
     const auto &parent_mem = addr_space_ids[parent_id];
-    emu_addr_space = std::make_shared<AddressSpace>(*parent_mem);
+    emu_addr_space = std::make_shared<vmill::AddressSpace>(*parent_mem);
   } else {
-    emu_addr_space = std::make_shared<AddressSpace>();
+    emu_addr_space = std::make_shared<vmill::AddressSpace>();
   }
 
   addr_space_ids[id] = emu_addr_space;
@@ -366,7 +365,7 @@ static void LoadAddressSpaceFromSnapshot(
 
 
 void Workspace::LoadSnapshotIntoExecutor(
-    const ProgramSnapshotPtr &snapshot, Executor &executor) {
+    const ProgramSnapshotPtr &snapshot, klee::Interpreter *executor) {
 
   LOG(INFO) << "Loading address space information from snapshot";
   AddressSpaceIdToMemoryMap address_space_ids;
@@ -390,7 +389,7 @@ void Workspace::LoadSnapshotIntoExecutor(
 
     
     
-    executor.AddInitialTask(task.state(), pc, memory);
+    executor -> AddInitialTask(task.state(), pc, memory);
   }
 }
 

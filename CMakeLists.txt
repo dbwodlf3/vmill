@@ -58,7 +58,7 @@ list(APPEND PROJECT_INCLUDEDIRECTORIES ${CMAKE_CURRENT_BINARY_DIR})
 list(APPEND PROJECT_INCLUDEDIRECTORIES ${PROJECT_PROTOBUFHEADERFILES})
 
 
-list(APPEND PROJECT_INCLUDEDIRECTORIES ../../include)
+#list(APPEND PROJECT_INCLUDEDIRECTORIES ../../include)
 
 # disable -Werror on these file since they have been generated
 set_source_files_properties(${PROJECT_PROTOBUFSOURCEFILES} PROPERTIES COMPILE_FLAGS "-Wno-sign-conversion -Wno-shorten-64-to-32 -Wno-conversion")
@@ -72,36 +72,9 @@ set(KLEE_LIBS
 
 add_library(${PROJECT_NAME} STATIC
     ${PROJECT_PROTOBUFSOURCEFILES}
-
-    vmill/BC/TraceLifter.cpp
-
     vmill/Workspace/Workspace.cpp
-
-    vmill/Executor/Executor.cpp
-    vmill/Executor/TraceManager.cpp
-    vmill/Executor/Interpreter.cpp
-    vmill/Executor/Runtime.cpp
-    
-    vmill/Program/AddressSpace.cpp
-    vmill/Program/MappedRange.cpp
-    vmill/Program/ShadowMemory.cpp
     vmill/Program/Snapshot.cpp
-    
-    vmill/Util/AreaAllocator.cpp
-    vmill/Util/Hash.cpp
-    vmill/Util/Timer.cpp
-    vmill/Util/Util.cpp
-    vmill/Util/ZoneAllocator.cpp
-
-    third_party/llvm/Execution.cpp
-    third_party/llvm/Interpreter.cpp
-    third_party/llvm/ExternalFunctions.cpp
-    
-    third_party/xxHash/xxhash.c
-    
 )
-
-
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 

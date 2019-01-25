@@ -17,9 +17,9 @@
 #define VMILL_WORKSPACE_WORKSPACE_H_
 
 #include <string>
+#include "klee/Interpreter.h"
 
 namespace vmill {
-class Executor;
 class ProgramSnapshotPtr;
 
 class Workspace {
@@ -36,7 +36,7 @@ class Workspace {
   static const std::string &RuntimeLibraryPath(void);
 
   static void LoadSnapshotIntoExecutor(
-      const ProgramSnapshotPtr &snapshot, Executor &executor);
+      const ProgramSnapshotPtr &snapshot, klee::Interpreter *executor);
 
  private:
   Workspace(void) = delete;

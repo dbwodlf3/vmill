@@ -20,7 +20,7 @@
 
 #include "remill/OS/FileSystem.h"
 
-#include "vmill/Program/Snapshot.h"
+#include "Snapshot.h"
 
 namespace vmill {
 
