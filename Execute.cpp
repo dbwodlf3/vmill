@@ -221,7 +221,7 @@ int main(int argc, char **argv) {
 
   auto executor = std::unique_ptr<klee::Interpreter>(klee::Interpreter::create(context, IOpts, handler));
   handler->setInterpreter(executor.get());
-  module = executor->setModule(loadedModules, Opts);
+  executor->setModule(loadedModules, Opts);
   vmill::Workspace::LoadSnapshotIntoExecutor(snapshot, executor.get());
 
   executor->Run();
